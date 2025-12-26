@@ -2,198 +2,285 @@ using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
 
-/// <summary>
-/// Bluetooth UI - Menu and device list
-/// </summary>
 public class BluetoothUI : MonoBehaviour
 {
     public static BluetoothUI Instance;
     
-    [Header("Panels")]
-    public GameObject mainMenu;
-    public GameObject bluetoothMenu;
-    public GameObject deviceListPanel;
-    public GameObject waitingPanel;
-    
-    [Header("Buttons")]
-    public Button btnLocal;
-    public Button btnBluetooth;
-    public Button btnCreateGame;
-    public Button btnJoinGame;
-    public Button btnBack;
-    public Button btnBackFromDevices;
-    public Button btnCancelWaiting;
-    
-    [Header("Device List")]
-    public Transform deviceListContent;
-    public GameObject deviceItemPrefab;
-    
-    [Header("Waiting")]
-    public Text waitingText;
-    
+    // UI Elements - tạo runtime
+    private GameObject overlay;
+    private GameObject menuPanel, waitingPanel, devicePanel;
+    private Text txtStatus, txtScanning;
+    private Transform deviceContainer;
     private List<DeviceInfo> devices = new List<DeviceInfo>();
+    private bool isCancelling;
     
-    void Awake()
+    void Awake() => Instance = this;
+    
+    void Start() => CreateUI();
+    
+    void CreateUI()
     {
-        Instance = this;
+        var canvas = GetComponentInParent<Canvas>();
+        if (canvas == null) return;
+        
+        // === OVERLAY (full screen, dark, blocks clicks) ===
+        overlay = new GameObject("BT_Overlay", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        overlay.transform.SetParent(canvas.transform, false);
+        var oRect = overlay.GetComponent<RectTransform>();
+        oRect.anchorMin = Vector2.zero;
+        oRect.anchorMax = Vector2.one;
+        oRect.offsetMin = oRect.offsetMax = Vector2.zero;
+        var oImg = overlay.GetComponent<Image>();
+        oImg.color = new Color(0, 0, 0, 0.95f);
+        oImg.raycastTarget = true; // Block clicks to elements behind
+        overlay.transform.SetAsLastSibling();
+        
+        // === MENU PANEL ===
+        menuPanel = CreateCenterPanel(overlay.transform, "MenuPanel");
+        CreateText(menuPanel.transform, "BLUETOOTH", 42, 160, Color.white);
+        CreateButton(menuPanel.transform, "📡  TẠO PHÒNG", 50, new Color(0.2f, 0.55f, 0.2f), OnCreateRoom);
+        CreateButton(menuPanel.transform, "🔍  TÌM PHÒNG", -30, new Color(0.2f, 0.45f, 0.7f), OnJoinRoom);
+        CreateButton(menuPanel.transform, "✕  ĐÓNG", -120, new Color(0.5f, 0.3f, 0.3f), Hide);
+        
+        // === WAITING PANEL ===
+        waitingPanel = CreateCenterPanel(overlay.transform, "WaitingPanel");
+        txtStatus = CreateText(waitingPanel.transform, "Đang chờ...", 32, 80, Color.white);
+        CreateText(waitingPanel.transform, "Tên phòng: OQuanGame\nNgười chơi khác chọn 'Tìm phòng'\nđể kết nối với bạn", 22, 0, new Color(0.8f, 0.8f, 0.6f));
+        CreateButton(waitingPanel.transform, "❌  HỦY", -100, new Color(0.6f, 0.25f, 0.25f), OnCancelWait);
+        waitingPanel.SetActive(false);
+        
+        // === DEVICE LIST PANEL ===
+        devicePanel = CreateCenterPanel(overlay.transform, "DevicePanel");
+        CreateText(devicePanel.transform, "TÌM PHÒNG", 36, 160, Color.white);
+        txtScanning = CreateText(devicePanel.transform, "Đang quét...", 24, 110, Color.yellow);
+        CreateDeviceList(devicePanel.transform);
+        CreateButton(devicePanel.transform, "← QUAY LẠI", -150, new Color(0.45f, 0.35f, 0.35f), ShowMenu);
+        devicePanel.SetActive(false);
+        
+        overlay.SetActive(false);
     }
     
-    void Start()
+    GameObject CreatePanel(Transform parent, string name, Color color)
     {
-        // Setup buttons
-        if (btnLocal != null)
-            btnLocal.onClick.AddListener(OnLocalGame);
-        
-        if (btnBluetooth != null)
-            btnBluetooth.onClick.AddListener(OnBluetoothMenu);
-        
-        if (btnCreateGame != null)
-            btnCreateGame.onClick.AddListener(OnCreateGame);
-        
-        if (btnJoinGame != null)
-            btnJoinGame.onClick.AddListener(OnJoinGame);
-        
-        if (btnBack != null)
-            btnBack.onClick.AddListener(OnBack);
-        
-        if (btnBackFromDevices != null)
-            btnBackFromDevices.onClick.AddListener(OnBackFromDevices);
-        
-        if (btnCancelWaiting != null)
-            btnCancelWaiting.onClick.AddListener(OnCancelWaiting);
-        
-        ShowMainMenu();
+        var go = new GameObject(name, typeof(RectTransform), typeof(Image));
+        go.transform.SetParent(parent, false);
+        go.GetComponent<Image>().color = color;
+        return go;
     }
     
-    void ShowMainMenu()
+    GameObject CreateCenterPanel(Transform parent, string name)
     {
-        if (mainMenu != null) mainMenu.SetActive(true);
-        if (bluetoothMenu != null) bluetoothMenu.SetActive(false);
-        if (deviceListPanel != null) deviceListPanel.SetActive(false);
-        if (waitingPanel != null) waitingPanel.SetActive(false);
+        var go = new GameObject(name, typeof(RectTransform));
+        go.transform.SetParent(parent, false);
+        var rect = go.GetComponent<RectTransform>();
+        rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = new Vector2(500, 400);
+        return go;
     }
     
-    void OnLocalGame()
+    Text CreateText(Transform parent, string content, int size, float y, Color color)
     {
-        if (GameManager.instance != null)
-        {
-            GameManager.instance.currentMode = GameMode.Local;
-        }
-        UnityEngine.SceneManagement.SceneManager.LoadScene("GameScene");
-    }
-    
-    void OnBluetoothMenu()
-    {
-        if (mainMenu != null) mainMenu.SetActive(false);
-        if (bluetoothMenu != null) bluetoothMenu.SetActive(true);
-    }
-    
-    void OnCreateGame()
-    {
-        if (BluetoothGameManager.Instance != null)
-        {
-            BluetoothGameManager.Instance.CreateGame();
-        }
+        var go = new GameObject("Text", typeof(RectTransform), typeof(Text));
+        go.transform.SetParent(parent, false);
+        var rect = go.GetComponent<RectTransform>();
+        rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = new Vector2(450, 100);
+        rect.anchoredPosition = new Vector2(0, y);
         
-        if (bluetoothMenu != null) bluetoothMenu.SetActive(false);
-        if (waitingPanel != null) waitingPanel.SetActive(true);
-        
-        if (waitingText != null)
-        {
-            waitingText.text = "Đang chờ người chơi kết nối...\n\nTên thiết bị: OQuanGame";
-        }
+        var txt = go.GetComponent<Text>();
+        txt.text = content;
+        txt.fontSize = size;
+        txt.color = color;
+        txt.alignment = TextAnchor.MiddleCenter;
+        txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        return txt;
     }
     
-    void OnJoinGame()
+    void CreateButton(Transform parent, string label, float y, Color color, UnityEngine.Events.UnityAction action)
     {
-        if (BluetoothGameManager.Instance != null)
-        {
-            BluetoothGameManager.Instance.JoinGame();
-        }
+        var go = new GameObject("Btn", typeof(RectTransform), typeof(Image), typeof(Button));
+        go.transform.SetParent(parent, false);
+        var rect = go.GetComponent<RectTransform>();
+        rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = new Vector2(380, 70);
+        rect.anchoredPosition = new Vector2(0, y);
+        go.GetComponent<Image>().color = color;
+        go.GetComponent<Button>().onClick.AddListener(action);
         
-        if (bluetoothMenu != null) bluetoothMenu.SetActive(false);
-        if (deviceListPanel != null) deviceListPanel.SetActive(true);
-        
-        // Clear device list
-        ClearDeviceList();
+        var txt = new GameObject("Text", typeof(RectTransform), typeof(Text));
+        txt.transform.SetParent(go.transform, false);
+        var tRect = txt.GetComponent<RectTransform>();
+        tRect.anchorMin = Vector2.zero;
+        tRect.anchorMax = Vector2.one;
+        tRect.offsetMin = tRect.offsetMax = Vector2.zero;
+        var t = txt.GetComponent<Text>();
+        t.text = label;
+        t.fontSize = 28;
+        t.color = Color.white;
+        t.alignment = TextAnchor.MiddleCenter;
+        t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
     }
     
-    void ClearDeviceList()
+    void CreateDeviceList(Transform parent)
+    {
+        var scroll = new GameObject("Scroll", typeof(RectTransform), typeof(ScrollRect), typeof(Image));
+        scroll.transform.SetParent(parent, false);
+        var sRect = scroll.GetComponent<RectTransform>();
+        sRect.anchorMin = sRect.anchorMax = new Vector2(0.5f, 0.5f);
+        sRect.sizeDelta = new Vector2(420, 200);
+        sRect.anchoredPosition = new Vector2(0, -20);
+        scroll.GetComponent<Image>().color = new Color(0.1f, 0.1f, 0.1f, 0.7f);
+        
+        var viewport = new GameObject("Viewport", typeof(RectTransform), typeof(Mask), typeof(Image));
+        viewport.transform.SetParent(scroll.transform, false);
+        var vRect = viewport.GetComponent<RectTransform>();
+        vRect.anchorMin = Vector2.zero;
+        vRect.anchorMax = Vector2.one;
+        vRect.offsetMin = vRect.offsetMax = Vector2.zero;
+        viewport.GetComponent<Mask>().showMaskGraphic = false;
+        viewport.GetComponent<Image>().color = Color.white;
+        
+        var content = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+        content.transform.SetParent(viewport.transform, false);
+        var cRect = content.GetComponent<RectTransform>();
+        cRect.anchorMin = new Vector2(0, 1);
+        cRect.anchorMax = Vector2.one;
+        cRect.pivot = new Vector2(0.5f, 1);
+        cRect.offsetMin = cRect.offsetMax = Vector2.zero;
+        var layout = content.GetComponent<VerticalLayoutGroup>();
+        layout.spacing = 8;
+        layout.padding = new RectOffset(10, 10, 10, 10);
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = false;
+        content.GetComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        
+        deviceContainer = content.transform;
+        var sr = scroll.GetComponent<ScrollRect>();
+        sr.viewport = vRect;
+        sr.content = cRect;
+    }
+    
+    // === PUBLIC METHODS ===
+    public void Show()
+    {
+        if (overlay == null) CreateUI();
+        overlay?.SetActive(true);
+        ShowMenu();
+    }
+    
+    public void Hide()
+    {
+        overlay?.SetActive(false);
+    }
+    
+    void ShowMenu()
+    {
+        menuPanel?.SetActive(true);
+        waitingPanel?.SetActive(false);
+        devicePanel?.SetActive(false);
+    }
+    
+    void ShowWaiting(string status)
+    {
+        menuPanel?.SetActive(false);
+        waitingPanel?.SetActive(true);
+        devicePanel?.SetActive(false);
+        if (txtStatus) txtStatus.text = status;
+    }
+    
+    void ShowDeviceList()
+    {
+        menuPanel?.SetActive(false);
+        waitingPanel?.SetActive(false);
+        devicePanel?.SetActive(true);
+        if (txtScanning) txtScanning.text = "Đang quét...";
+        ClearDevices();
+    }
+    
+    // === BUTTON HANDLERS ===
+    void OnCreateRoom()
+    {
+        Debug.Log("🔵 Create room");
+        BluetoothGameManager.Instance?.CreateGame();
+        ShowWaiting("Đang chờ người chơi...");
+    }
+    
+    void OnJoinRoom()
+    {
+        Debug.Log("🔵 Join room");
+        BluetoothGameManager.Instance?.JoinGame();
+        ShowDeviceList();
+    }
+    
+    void OnCancelWait()
+    {
+        Debug.Log("🔵 Cancel");
+        isCancelling = true;
+        BluetoothGameManager.Instance?.Disconnect();
+        ShowMenu();
+        // Keep isCancelling true for 1 second to ignore async callbacks
+        Invoke(nameof(ResetCancelling), 1f);
+    }
+    
+    void ResetCancelling() => isCancelling = false;
+    
+    // === DEVICE LIST ===
+    void ClearDevices()
     {
         devices.Clear();
-        
-        if (deviceListContent != null)
-        {
-            foreach (Transform child in deviceListContent)
-            {
-                Destroy(child.gameObject);
-            }
-        }
+        if (deviceContainer != null)
+            foreach (Transform c in deviceContainer) Destroy(c.gameObject);
     }
     
     public void AddDevice(string name, string address)
     {
-        // Check if already added
-        if (devices.Exists(d => d.address == address))
-            return;
+        if (!name.Contains("OQuan") || devices.Exists(d => d.address == address)) return;
         
         devices.Add(new DeviceInfo { name = name, address = address });
+        if (txtScanning) txtScanning.text = $"Tìm thấy {devices.Count} phòng";
         
-        // Create UI item
-        if (deviceItemPrefab != null && deviceListContent != null)
-        {
-            GameObject item = Instantiate(deviceItemPrefab, deviceListContent);
-            
-            Text nameText = item.transform.Find("Name")?.GetComponent<Text>();
-            if (nameText != null)
-                nameText.text = name;
-            
-            Text addressText = item.transform.Find("Address")?.GetComponent<Text>();
-            if (addressText != null)
-                addressText.text = address;
-            
-            Button btn = item.GetComponent<Button>();
-            if (btn != null)
-            {
-                btn.onClick.AddListener(() => OnDeviceSelected(address));
-            }
-        }
+        // Create device button
+        var go = new GameObject("Device", typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
+        go.transform.SetParent(deviceContainer, false);
+        go.GetComponent<Image>().color = new Color(0.2f, 0.5f, 0.3f);
+        go.GetComponent<LayoutElement>().preferredHeight = 60;
+        string addr = address;
+        go.GetComponent<Button>().onClick.AddListener(() => ConnectTo(name, addr));
+        
+        var txt = new GameObject("T", typeof(RectTransform), typeof(Text));
+        txt.transform.SetParent(go.transform, false);
+        var r = txt.GetComponent<RectTransform>();
+        r.anchorMin = Vector2.zero; r.anchorMax = Vector2.one;
+        r.offsetMin = r.offsetMax = Vector2.zero;
+        var t = txt.GetComponent<Text>();
+        t.text = name;
+        t.fontSize = 24;
+        t.color = Color.white;
+        t.alignment = TextAnchor.MiddleCenter;
+        t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
     }
     
-    void OnDeviceSelected(string address)
+    void ConnectTo(string name, string address)
     {
-        if (BluetoothGameManager.Instance != null)
-        {
-            BluetoothGameManager.Instance.ConnectToDevice(address);
-        }
-        
-        if (deviceListPanel != null) deviceListPanel.SetActive(false);
-        if (waitingPanel != null) waitingPanel.SetActive(true);
-        
-        if (waitingText != null)
-        {
-            waitingText.text = "Đang kết nối...";
-        }
+        Debug.Log($"🔵 Connect to {name}");
+        BluetoothGameManager.Instance?.ConnectToDevice(address);
+        ShowWaiting("Đang kết nối...");
     }
     
-    void OnBack()
+    // === CALLBACKS ===
+    public void OnConnected()
     {
-        ShowMainMenu();
+        Debug.Log("🔵 Connected!");
+        Hide();
     }
     
-    void OnBackFromDevices()
+    public void OnDisconnected()
     {
-        if (deviceListPanel != null) deviceListPanel.SetActive(false);
-        if (bluetoothMenu != null) bluetoothMenu.SetActive(true);
+        if (!isCancelling) ShowWaiting("Mất kết nối!");
     }
     
-    void OnCancelWaiting()
+    public void OnScanFinished()
     {
-        if (BluetoothGameManager.Instance != null)
-        {
-            BluetoothGameManager.Instance.Disconnect();
-        }
-        
-        ShowMainMenu();
+        if (txtScanning) txtScanning.text = devices.Count > 0 ? $"Tìm thấy {devices.Count} phòng" : "Không tìm thấy phòng";
     }
 }

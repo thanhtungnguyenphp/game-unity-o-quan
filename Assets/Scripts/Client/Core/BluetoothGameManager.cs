@@ -176,6 +176,7 @@ public class BluetoothGameManager : MonoBehaviour
         
         UnityMainThreadDispatcher.Instance().Enqueue(() =>
         {
+            BluetoothUI.Instance?.OnConnected();
             StartGame();
         });
     }
@@ -187,6 +188,7 @@ public class BluetoothGameManager : MonoBehaviour
         
         UnityMainThreadDispatcher.Instance().Enqueue(() =>
         {
+            BluetoothUI.Instance?.OnDisconnected();
             HandleDisconnection();
         });
     }

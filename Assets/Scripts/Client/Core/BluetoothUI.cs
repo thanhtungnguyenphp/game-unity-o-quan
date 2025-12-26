@@ -3,197 +3,199 @@ using UnityEngine.UI;
 using System.Collections.Generic;
 
 /// <summary>
-/// Bluetooth UI - Menu and device list
+/// Bluetooth UI - Popup menu for Bluetooth multiplayer
 /// </summary>
 public class BluetoothUI : MonoBehaviour
 {
     public static BluetoothUI Instance;
     
-    [Header("Panels")]
-    public GameObject mainMenu;
-    public GameObject bluetoothMenu;
-    public GameObject deviceListPanel;
-    public GameObject waitingPanel;
+    [Header("Main Popup")]
+    public GameObject popupPanel;        // Full screen overlay
+    public GameObject menuContent;       // Menu buttons container
+    public GameObject waitingContent;    // Waiting screen
+    public GameObject deviceListContent; // Device list screen
     
-    [Header("Buttons")]
-    public Button btnLocal;
-    public Button btnBluetooth;
-    public Button btnCreateGame;
-    public Button btnJoinGame;
-    public Button btnBack;
-    public Button btnBackFromDevices;
-    public Button btnCancelWaiting;
+    [Header("Menu Buttons")]
+    public Button btnCreateRoom;
+    public Button btnJoinRoom;
+    public Button btnClose;
+    
+    [Header("Waiting Screen")]
+    public Text txtStatus;
+    public Text txtRoomName;
+    public Button btnCancelWait;
     
     [Header("Device List")]
-    public Transform deviceListContent;
+    public Transform deviceContainer;
     public GameObject deviceItemPrefab;
+    public Button btnBackFromList;
+    public Text txtScanning;
     
-    [Header("Waiting")]
-    public Text waitingText;
+    [Header("Room Settings")]
+    public InputField inputRoomName;
     
     private List<DeviceInfo> devices = new List<DeviceInfo>();
+    private string roomName = "OQuanGame";
     
-    void Awake()
-    {
-        Instance = this;
-    }
+    void Awake() => Instance = this;
     
     void Start()
     {
-        // Setup buttons
-        if (btnLocal != null)
-            btnLocal.onClick.AddListener(OnLocalGame);
-        
-        if (btnBluetooth != null)
-            btnBluetooth.onClick.AddListener(OnBluetoothMenu);
-        
-        if (btnCreateGame != null)
-            btnCreateGame.onClick.AddListener(OnCreateGame);
-        
-        if (btnJoinGame != null)
-            btnJoinGame.onClick.AddListener(OnJoinGame);
-        
-        if (btnBack != null)
-            btnBack.onClick.AddListener(OnBack);
-        
-        if (btnBackFromDevices != null)
-            btnBackFromDevices.onClick.AddListener(OnBackFromDevices);
-        
-        if (btnCancelWaiting != null)
-            btnCancelWaiting.onClick.AddListener(OnCancelWaiting);
-        
-        ShowMainMenu();
+        SetupButtons();
+        Hide();
     }
     
-    void ShowMainMenu()
+    void SetupButtons()
     {
-        if (mainMenu != null) mainMenu.SetActive(true);
-        if (bluetoothMenu != null) bluetoothMenu.SetActive(false);
-        if (deviceListPanel != null) deviceListPanel.SetActive(false);
-        if (waitingPanel != null) waitingPanel.SetActive(false);
+        // Menu buttons
+        btnCreateRoom?.onClick.AddListener(OnCreateRoom);
+        btnJoinRoom?.onClick.AddListener(OnJoinRoom);
+        btnClose?.onClick.AddListener(Hide);
+        
+        // Waiting buttons
+        btnCancelWait?.onClick.AddListener(OnCancelWait);
+        
+        // Device list buttons
+        btnBackFromList?.onClick.AddListener(ShowMenu);
+        
+        // Room name input
+        if (inputRoomName != null)
+            inputRoomName.onEndEdit.AddListener(s => roomName = string.IsNullOrEmpty(s) ? "OQuanGame" : s);
     }
     
-    void OnLocalGame()
+    public void Show()
     {
-        if (GameManager.instance != null)
-        {
-            GameManager.instance.currentMode = GameMode.Local;
-        }
-        UnityEngine.SceneManagement.SceneManager.LoadScene("GameScene");
+        if (popupPanel != null) popupPanel.SetActive(true);
+        ShowMenu();
     }
     
-    void OnBluetoothMenu()
+    public void Hide()
     {
-        if (mainMenu != null) mainMenu.SetActive(false);
-        if (bluetoothMenu != null) bluetoothMenu.SetActive(true);
+        if (popupPanel != null) popupPanel.SetActive(false);
     }
     
-    void OnCreateGame()
+    void ShowMenu()
     {
+        if (menuContent != null) menuContent.SetActive(true);
+        if (waitingContent != null) waitingContent.SetActive(false);
+        if (deviceListContent != null) deviceListContent.SetActive(false);
+    }
+    
+    void ShowWaiting(string status, string room = "")
+    {
+        if (menuContent != null) menuContent.SetActive(false);
+        if (waitingContent != null) waitingContent.SetActive(true);
+        if (deviceListContent != null) deviceListContent.SetActive(false);
+        
+        if (txtStatus != null) txtStatus.text = status;
+        if (txtRoomName != null) txtRoomName.text = room;
+    }
+    
+    void ShowDeviceList()
+    {
+        if (menuContent != null) menuContent.SetActive(false);
+        if (waitingContent != null) waitingContent.SetActive(false);
+        if (deviceListContent != null) deviceListContent.SetActive(true);
+        
+        if (txtScanning != null) txtScanning.text = "Đang tìm phòng...";
+        ClearDevices();
+    }
+    
+    // === Button Handlers ===
+    
+    void OnCreateRoom()
+    {
+        Debug.Log($"🔵 Creating room: {roomName}");
+        
         if (BluetoothGameManager.Instance != null)
         {
             BluetoothGameManager.Instance.CreateGame();
         }
         
-        if (bluetoothMenu != null) bluetoothMenu.SetActive(false);
-        if (waitingPanel != null) waitingPanel.SetActive(true);
-        
-        if (waitingText != null)
-        {
-            waitingText.text = "Đang chờ người chơi kết nối...\n\nTên thiết bị: OQuanGame";
-        }
+        ShowWaiting("Đang chờ người chơi kết nối...", $"Phòng: {roomName}");
     }
     
-    void OnJoinGame()
+    void OnJoinRoom()
     {
+        Debug.Log("🔵 Joining room...");
+        
         if (BluetoothGameManager.Instance != null)
         {
             BluetoothGameManager.Instance.JoinGame();
         }
         
-        if (bluetoothMenu != null) bluetoothMenu.SetActive(false);
-        if (deviceListPanel != null) deviceListPanel.SetActive(true);
-        
-        // Clear device list
-        ClearDeviceList();
+        ShowDeviceList();
     }
     
-    void ClearDeviceList()
+    private bool isCancelling = false;
+    
+    void OnCancelWait()
+    {
+        Debug.Log("🔵 Cancel waiting");
+        isCancelling = true;
+        BluetoothGameManager.Instance?.Disconnect();
+        ShowMenu();
+        isCancelling = false;
+    }
+    
+    // === Device List ===
+    
+    void ClearDevices()
     {
         devices.Clear();
-        
-        if (deviceListContent != null)
-        {
-            foreach (Transform child in deviceListContent)
-            {
+        if (deviceContainer != null)
+            foreach (Transform child in deviceContainer)
                 Destroy(child.gameObject);
-            }
-        }
     }
     
     public void AddDevice(string name, string address)
     {
-        // Check if already added
-        if (devices.Exists(d => d.address == address))
-            return;
+        // Filter: chỉ hiện thiết bị có tên chứa "OQuan" (phòng game)
+        if (!name.Contains("OQuan")) return;
+        if (devices.Exists(d => d.address == address)) return;
         
+        Debug.Log($"🔵 Found game room: {name}");
         devices.Add(new DeviceInfo { name = name, address = address });
         
-        // Create UI item
-        if (deviceItemPrefab != null && deviceListContent != null)
-        {
-            GameObject item = Instantiate(deviceItemPrefab, deviceListContent);
-            
-            Text nameText = item.transform.Find("Name")?.GetComponent<Text>();
-            if (nameText != null)
-                nameText.text = name;
-            
-            Text addressText = item.transform.Find("Address")?.GetComponent<Text>();
-            if (addressText != null)
-                addressText.text = address;
-            
-            Button btn = item.GetComponent<Button>();
-            if (btn != null)
-            {
-                btn.onClick.AddListener(() => OnDeviceSelected(address));
-            }
-        }
-    }
-    
-    void OnDeviceSelected(string address)
-    {
-        if (BluetoothGameManager.Instance != null)
-        {
-            BluetoothGameManager.Instance.ConnectToDevice(address);
-        }
+        if (txtScanning != null) txtScanning.text = $"Tìm thấy {devices.Count} phòng";
         
-        if (deviceListPanel != null) deviceListPanel.SetActive(false);
-        if (waitingPanel != null) waitingPanel.SetActive(true);
-        
-        if (waitingText != null)
+        if (deviceItemPrefab != null && deviceContainer != null)
         {
-            waitingText.text = "Đang kết nối...";
+            var item = Instantiate(deviceItemPrefab, deviceContainer);
+            var txt = item.GetComponentInChildren<Text>();
+            if (txt != null) txt.text = name;
+            
+            var btn = item.GetComponent<Button>();
+            if (btn != null) btn.onClick.AddListener(() => ConnectTo(name, address));
         }
     }
     
-    void OnBack()
+    void ConnectTo(string name, string address)
     {
-        ShowMainMenu();
+        Debug.Log($"🔵 Connecting to: {name}");
+        BluetoothGameManager.Instance?.ConnectToDevice(address);
+        ShowWaiting("Đang kết nối...", $"Phòng: {name}");
     }
     
-    void OnBackFromDevices()
+    // === Callbacks from BluetoothGameManager ===
+    
+    public void OnConnected()
     {
-        if (deviceListPanel != null) deviceListPanel.SetActive(false);
-        if (bluetoothMenu != null) bluetoothMenu.SetActive(true);
+        Debug.Log("🔵 Connected! Starting game...");
+        Hide();
     }
     
-    void OnCancelWaiting()
+    public void OnDisconnected()
     {
-        if (BluetoothGameManager.Instance != null)
-        {
-            BluetoothGameManager.Instance.Disconnect();
-        }
-        
-        ShowMainMenu();
+        if (isCancelling) return; // Ignore if user cancelled
+        ShowWaiting("Mất kết nối!", "Vui lòng thử lại");
+    }
+    
+    public void OnScanFinished()
+    {
+        if (txtScanning != null)
+            txtScanning.text = devices.Count > 0 
+                ? $"Tìm thấy {devices.Count} phòng" 
+                : "Không tìm thấy phòng nào";
     }
 }

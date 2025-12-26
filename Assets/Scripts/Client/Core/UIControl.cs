@@ -41,9 +41,11 @@ public class UIControl : MonoBehaviour
 
     public void ShowDirection() => _arrowDirction.Show();
 
-    public void CallbackClickDirection(int dir) => GameMagager.instance.OnSelectDirection(dir);
-    public void CallbackClickHideArrow() => GameMagager.instance.CallbackHideArrowDirection();
+    public void PulseCellEffect(int cellIndex) => _cellUIControl.PulseCell(cellIndex);
 
-    public void OnClickDan(int index) => GameMagager.instance.OnSelectCell(index);
+    public void CallbackClickDirection(int dir) => GameManager.instance.OnSelectDirection(dir);
+    public void CallbackClickHideArrow() => GameManager.instance.CallbackHideArrowDirection();
+
+    public void OnClickDan(int index) => GameManager.instance.OnSelectCell(index);
 
 }

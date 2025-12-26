@@ -13,7 +13,13 @@ public class GameState : MonoBehaviour, GameStateMachine
     {
         Main.LoadState(this, 0, false);
         UIObject = GameObject.Find("Game");
-        _settingUI = GameObject.Find("All").transform.Find("SettingUI").GetComponent<SettingUI>();
+        var allObj = GameObject.Find("All");
+        if (allObj != null)
+        {
+            var settingTransform = allObj.transform.Find("SettingUI");
+            if (settingTransform != null)
+                _settingUI = settingTransform.GetComponent<SettingUI>();
+        }
     }
     public IEnumerator Load(Main _MainScript)
     {
@@ -22,7 +28,8 @@ public class GameState : MonoBehaviour, GameStateMachine
     }
     public void UpdateState()
     {
-        _gameManager.UpdateManager();
+        if (_gameManager != null)
+            _gameManager.UpdateManager();
     }
     public void LateUpdateState() { }
     public void FixedUpdateState() { }
@@ -41,7 +48,8 @@ public class GameState : MonoBehaviour, GameStateMachine
     }
     public void Disable()
     {
-        gameObject.SetActive(false);
+        if (gameObject != null)
+            gameObject.SetActive(false);
         if (UIObject != null)
             UIObject.SetActive(false);
     }
@@ -70,7 +78,7 @@ public class GameState : MonoBehaviour, GameStateMachine
         //UIObject.transform.SetAsLastSibling();
     }
 
-    GameMagager _gameManager;
+    GameManager _gameManager;
     PauseUI _pauseUI;
     SettingUI _settingUI;
 
@@ -80,12 +88,32 @@ public class GameState : MonoBehaviour, GameStateMachine
         Time.fixedDeltaTime = 1 / 50f;
         Application.runInBackground = true;
         ButtonSettingClick.instance.Init(CallbackClickPause);
-        _gameManager = UIObject.GetComponent<GameMagager>();
+        _gameManager = UIObject.GetComponent<GameManager>();
         _pauseUI = UIObject.transform.Find("PauseUI")?.GetComponent<PauseUI>();
         _gameManager.Initialize(this);
         _pauseUI.Init(CallbackContinue, CallbackPlayAgain, CallbackBacktoMenu, CallbackOpenSetting);
         //_settingUI.Init();
-        yield return null;
+        
+        // Wait a frame for initialization
+        yield return new WaitForEndOfFrame();
+        
+        // Disable LoadingState UI first
+        if (LoadingState.instance != null)
+        {
+            LoadingState.instance.Disable();
+            Debug.Log("✅ LoadingState disabled from GameState.Init()");
+        }
+        
+        // Ensure splash screen is hidden
+        if (SlashScreenControl.instance != null)
+        {
+            SlashScreenControl.instance.Hide();
+            Debug.Log("✅ SlashScreen hidden from GameState.Init()");
+        }
+        
+        // Enable GameState UI
+        Enable();
+        Debug.Log("✅ GameState enabled from Init()");
     }
 
     public void CallbackClickPause() => _pauseUI.Show();

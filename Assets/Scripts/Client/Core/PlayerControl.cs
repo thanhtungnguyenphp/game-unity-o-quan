@@ -1,23 +1,23 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class PlayerControl : MonoBehaviour
+/// <summary>
+/// Controls player UI display and updates
+/// </summary>
+public class PlayerControl : MonoBehaviour, IPlayerUI
 {
-    [Header("Private")]
-    [SerializeField] Text _p1ScoreText;
-    [SerializeField] Text _p2ScoreText;
-    [SerializeField] Text _p1OweText;
-    [SerializeField] Text _p2OweText;
-    [SerializeField] List<Image> _p1Stones = new List<Image>();
-    [SerializeField] List<Image> _p2Stones = new List<Image>();
+    [Header("UI References")]
+    [SerializeField] private Text _p1ScoreText;
+    [SerializeField] private Text _p2ScoreText;
+    [SerializeField] private Text _p1OweText;
+    [SerializeField] private Text _p2OweText;
+    [SerializeField] private List<Image> _p1Stones = new List<Image>();
+    [SerializeField] private List<Image> _p2Stones = new List<Image>();
 
-    OulineBlinker _outlineBlinker;
-    int _currentPoinP1 = 0;
-    int _currentPoinP2 = 0;
-    float _durationScaleFX = 0.85f;
-    float _scaleFactor = 3f;
+    private OulineBlinker _outlineBlinker;
+    private int _currentPointP1 = 0;
+    private int _currentPointP2 = 0;
 
     public void Initialize()
     {
@@ -32,97 +32,87 @@ public class PlayerControl : MonoBehaviour
 
         _p1ScoreText = p1.Find("score").GetComponent<Text>();
         _p2ScoreText = p2.Find("score").GetComponent<Text>();
-
         _p1OweText = p1.Find("owe").GetComponent<Text>();
         _p2OweText = p2.Find("owe").GetComponent<Text>();
 
         foreach (Transform child in p1.Find("item").Find("da"))
-        {
             _p1Stones.Add(child.GetComponent<Image>());
-        }
+
         foreach (Transform child in p2.Find("item").Find("da"))
-        {
             _p2Stones.Add(child.GetComponent<Image>());
-        }
 
-        _p1ScoreText.text = $"{0}";
-        _p2ScoreText.text = $"{0}";
-
+        _p1ScoreText.text = "0";
+        _p2ScoreText.text = "0";
     }
 
-    public void UpdateOutline(PlayerTurn turn) => _outlineBlinker.SetTurn(turn);
+    public void UpdateOutline(PlayerTurn turn)
+    {
+        _outlineBlinker.SetTurn(turn);
+    }
 
     public void UpdatePlayer(int p1Score, int p2Score, int p1Da, int p2Da, int p1Owe, int p2Owe)
     {
-        print($"P1 Point:{p1Score}|{p1Da} || P2 point:{p2Score}|{p2Da} / c1|c2: {_currentPoinP1}|{_currentPoinP2}");
-        if (p1Score != _currentPoinP1)
-        {
-            print($"P1 Score: c: {_currentPoinP1} -> {p1Score}");
-            _p1ScoreText.text = $"{p1Score}";
-            if (p1Score > _currentPoinP1)
-            {
-                print("run VFX P1");
-                RunVFX(text: _p1ScoreText, duration: _durationScaleFX, scaleFactor: _scaleFactor, colorHex: "#15ff00fb");
-                SoundManager.Instance.PlaySFX(Config.SFX.EAT);
-            }
-            else
-            { }
-            _currentPoinP1 = p1Score;
-        }
-        if (p2Score != _currentPoinP2)
-        {
-            print($"P2 Score: c: {_currentPoinP2} -> {p2Score}");
-            _p2ScoreText.text = $"{p2Score}";
-            if (p2Score > _currentPoinP2)
-            {
-                print("run VFX P2");
-                RunVFX(text: _p2ScoreText, duration: _durationScaleFX, scaleFactor: _scaleFactor, colorHex: "#15ff00fb");
-                SoundManager.Instance.PlaySFX(Config.SFX.EAT);
-            }
-            else
-            { }
-            _currentPoinP2 = p2Score;
-        }
+        UpdateScore(PlayerTurn.P1, p1Score, ref _currentPointP1, _p1ScoreText);
+        UpdateScore(PlayerTurn.P2, p2Score, ref _currentPointP2, _p2ScoreText);
 
         _p1OweText.text = p1Owe > 0 ? $"-{p1Owe}" : string.Empty;
         _p2OweText.text = p2Owe > 0 ? $"-{p2Owe}" : string.Empty;
 
-        for (int i = 0; i < _p1Stones.Count; i++)
-        {
-            _p1Stones[i].gameObject.SetActive(i < p1Da);
-        }
-        for (int i = 0; i < _p2Stones.Count; i++)
-        {
-            _p2Stones[i].gameObject.SetActive(i < p2Da);
-        }
-
+        UpdateStoneDisplay(_p1Stones, p1Da);
+        UpdateStoneDisplay(_p2Stones, p2Da);
     }
 
-    void RunVFX(Text text, float duration, float scaleFactor, string colorHex = null)
+    private void UpdateScore(PlayerTurn player, int newScore, ref int currentScore, Text scoreText)
+    {
+        if (newScore == currentScore) return;
+
+        var sb = StringBuilderCache.Acquire(10);
+        sb.Append(newScore);
+        scoreText.text = StringBuilderCache.GetStringAndRelease(sb);
+
+        if (newScore > currentScore)
+        {
+            RunVFX(scoreText, GameConstants.SCALE_DURATION, GameConstants.SCALE_FACTOR, GameConstants.COLOR_SCORE_GAIN);
+            SoundManager.Instance.PlaySFX(Config.SFX.EAT);
+        }
+        else if (newScore < currentScore)
+        {
+            RunVFX(scoreText, GameConstants.SCALE_DURATION, 1.2f, GameConstants.COLOR_CAPTURE);
+        }
+
+        currentScore = newScore;
+    }
+
+    private void UpdateStoneDisplay(List<Image> stones, int count)
+    {
+        for (int i = 0; i < stones.Count; i++)
+            stones[i].gameObject.SetActive(i < count);
+    }
+
+    private void RunVFX(Text text, float duration, float scaleFactor, string colorHex)
     {
         if (text == null)
         {
             Debug.LogError("Text component is null");
             return;
         }
-        if (colorHex == null)
-            colorHex = "#FFFFFF"; // Default color
+
         VFXControl._instance.ScaleImage(text, scaleFactor, duration, colorHex);
     }
 
     public void ResetPlayer()
     {
-        _currentPoinP1 = 0;
-        _currentPoinP2 = 0;
-        _p1ScoreText.text = $"{_currentPoinP1}";
-        _p2ScoreText.text = $"{_currentPoinP2}";
+        _currentPointP1 = 0;
+        _currentPointP2 = 0;
+        _p1ScoreText.text = "0";
+        _p2ScoreText.text = "0";
         _p1OweText.text = string.Empty;
         _p2OweText.text = string.Empty;
 
         foreach (var stone in _p1Stones)
             stone.gameObject.SetActive(false);
+
         foreach (var stone in _p2Stones)
             stone.gameObject.SetActive(false);
     }
-
 }

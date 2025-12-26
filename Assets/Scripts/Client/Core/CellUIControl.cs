@@ -85,12 +85,15 @@ public class CellUIControl : MonoBehaviour
     {   
         for (int i = 0; i < 12; i++)
         {
-            _cellTexts[i].text = stones[i].ToString();
+            var sb = StringBuilderCache.Acquire(5);
+            sb.Append(stones[i]);
+            _cellTexts[i].text = StringBuilderCache.GetStringAndRelease(sb);
+            
             if (_dicStones.TryGetValue(i, out List<Image> images))
             {
                 int count = stones[i];
                 // Nếu là ô Quan (5 hoặc 11), trừ đi 1 viên đá Quan 
-                if (i == 5 && GameMagager.instance.BoardManager.Quan1Available || i == 11 && GameMagager.instance.BoardManager.Quan2Available)
+                if (i == 5 && GameManager.instance.BoardManager.Quan1Available || i == 11 && GameManager.instance.BoardManager.Quan2Available)
                     count = Mathf.Max(0, count - 1);
 
                 for (int j = 0; j < images.Count; j++)
@@ -98,12 +101,23 @@ public class CellUIControl : MonoBehaviour
                     images[j].gameObject.SetActive(j < count);
                 }
 
-                _Quan1Image.SetActive(GameMagager.instance.BoardManager.Quan1Available);
-                _Quan2Image.SetActive(GameMagager.instance.BoardManager.Quan2Available);
+                _Quan1Image.SetActive(GameManager.instance.BoardManager.Quan1Available);
+                _Quan2Image.SetActive(GameManager.instance.BoardManager.Quan2Available);
             }
         }
     }
 
     public void OnClickDan(int idx) => _onClickDan?.Invoke(idx);
+
+    public void PulseCell(int cellIndex)
+    {
+        if (cellIndex < 0 || cellIndex >= _cellTexts.Count) return;
+        
+        Text cellText = _cellTexts[cellIndex];
+        if (cellText != null)
+        {
+            VFXControl._instance?.ScaleImage(cellText, 1.3f, GameConstants.PULSE_DURATION, GameConstants.COLOR_HIGHLIGHT);
+        }
+    }
 
 }

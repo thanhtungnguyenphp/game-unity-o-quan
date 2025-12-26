@@ -9,6 +9,7 @@ public class SettingUI : MonoBehaviour
     private Toggle _sfxToggle;
     private Toggle _musicToggle;
     private Button _btnBgClose;
+    private Button _btnReplayTutorial;
 
     /// <summary>
     /// Gọi một lần sau khi Instantiate hoặc Scene load.
@@ -44,6 +45,15 @@ public class SettingUI : MonoBehaviour
         _musicToggle.isOn = PlayerPrefs.GetInt("MusicEnabled", 1) == 1;
         _musicToggle.onValueChanged.RemoveAllListeners();
         _musicToggle.onValueChanged.AddListener(OnMusicToggleChanged);
+
+        // Lấy Button Replay Tutorial (optional)
+        var tutorialBtn = transform.Find("Content/ReplayTutorial");
+        if (tutorialBtn != null)
+        {
+            _btnReplayTutorial = tutorialBtn.GetComponent<Button>();
+            _btnReplayTutorial.onClick.RemoveAllListeners();
+            _btnReplayTutorial.onClick.AddListener(OnReplayTutorial);
+        }
     }
 
     /// <summary>
@@ -81,5 +91,18 @@ public class SettingUI : MonoBehaviour
         // Ví dụ: AudioManager.Instance.EnableMusic(isOn);
         Debug.Log($"Music Enabled: {isOn}");
         SoundManager.Instance.EnableMusic(isOn);
+    }
+
+    /// <summary>
+    /// Replay tutorial
+    /// </summary>
+    private void OnReplayTutorial()
+    {
+        Hide();
+        if (TutorialManager.Instance != null)
+        {
+            TutorialManager.Instance.ResetTutorial();
+            TutorialManager.Instance.StartTutorial(null);
+        }
     }
 }

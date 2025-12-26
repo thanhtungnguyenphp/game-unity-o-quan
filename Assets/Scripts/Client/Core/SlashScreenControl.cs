@@ -45,7 +45,11 @@ public class SlashScreenControl : MonoBehaviour
     public int RandomImage()
         => Random.Range(0, sprites.Length);
 
-    public void Hide() => slash_screen_UI.SetActive(false);
+    public void Hide()
+    {
+        slash_screen_UI.SetActive(false);
+        Debug.Log("🔴 SlashScreen hidden - slash_screen_UI.SetActive(false)");
+    }
 
     public void SetOpacity(float amount)
         => splash.color

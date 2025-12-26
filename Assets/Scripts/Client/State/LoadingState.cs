@@ -19,7 +19,18 @@ public class LoadingState : MonoBehaviour, GameStateMachine
         _gameUIObj = gameStateObj;
         _settingUI = GameObject.Find("All").transform.Find("SettingUI").GetComponent<SettingUI>();
         
-
+        // Check if loaded directly from button (not from splash screen)
+        string gameMode = PlayerPrefs.GetString("GameMode", "");
+        if (!string.IsNullOrEmpty(gameMode))
+        {
+            Debug.Log($"🎮 Direct load detected with mode: {gameMode}");
+            // Clear the flag
+            PlayerPrefs.DeleteKey("GameMode");
+            PlayerPrefs.Save();
+            
+            // Skip loading state and go directly to game
+            StartCoroutine(DirectStartGame());
+        }
     }
     public IEnumerator Load(Main _MainScript)
     {
@@ -73,8 +84,18 @@ public class LoadingState : MonoBehaviour, GameStateMachine
     }
     public void Disable()
     {
+        Debug.Log("🔴 LoadingState.Disable() called");
+        
+        // Disable UIObject first (this is the visible UI)
         if (UIObject != null)
+        {
             UIObject.SetActive(false);
+            Debug.Log("✅ UIObject (Loading) disabled");
+        }
+        
+        // DON'T disable gameObject from itself - just hide the UI
+        // The gameObject will be disabled by the state machine
+        Debug.Log("✅ LoadingState UI hidden");
     }
     public void StartChangeState(GameStateMachine _NextState, GameStateMachine _LastState)
     {
@@ -130,9 +151,21 @@ public class LoadingState : MonoBehaviour, GameStateMachine
         yield return API.LoadMasterData();
         yield return API.LoadPlayerData();
         yield return StartCoroutine(AnimateFillToFull(1f));
+        
+        // Wait a frame before hiding splash screen
+        yield return new WaitForEndOfFrame();
         SlashScreenControl.instance.Hide();
-        StartCoroutine(gameState.Init());
+        
+        // Activate game UI
         _gameUIObj.SetActive(true);
+        
+        // Wait for GameState to initialize completely
+        yield return StartCoroutine(gameState.Init());
+        
+        // Wait another frame to ensure UI is ready
+        yield return new WaitForEndOfFrame();
+        
+        // Finally transition to game state
         Finish();
     }
 
@@ -175,6 +208,43 @@ public class LoadingState : MonoBehaviour, GameStateMachine
         }
         // Đảm bảo kết quả là 100%
         SlashScreenControl.instance.UpdateFillBar(1f);
+    }
+    
+    /// <summary>
+    /// Start game directly without loading screen (when loaded from button)
+    /// </summary>
+    private IEnumerator DirectStartGame()
+    {
+        Debug.Log("🚀 DirectStartGame: Skipping loading screen");
+        
+        // Hide loading UI immediately
+        if (UIObject != null)
+        {
+            UIObject.SetActive(false);
+            Debug.Log("✅ Loading UI hidden");
+        }
+        
+        // Hide splash screen if exists
+        if (SlashScreenControl.instance != null)
+        {
+            SlashScreenControl.instance.Hide();
+            Debug.Log("✅ Splash screen hidden");
+        }
+        
+        // Activate game UI
+        _gameUIObj.SetActive(true);
+        Debug.Log("✅ Game UI activated");
+        
+        // Initialize game state
+        yield return StartCoroutine(gameState.Init());
+        Debug.Log("✅ GameState initialized");
+        
+        // Wait a frame for UI to settle
+        yield return new WaitForEndOfFrame();
+        
+        // Transition to game state
+        Finish();
+        Debug.Log("✅ Transitioned to GameState");
     }
 
 }

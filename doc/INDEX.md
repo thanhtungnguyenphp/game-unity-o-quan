@@ -1,5 +1,15 @@
 # 📚 Documentation Index - Ô QUAN Game
 
+## 🤖 Gemini AI Integration (NEW)
+
+Tài liệu tích hợp Google Gemini AI:
+
+- **[README.md](play_ai/README.md)** - Tổng quan & Quick Start
+- **[ARCHITECTURE.md](play_ai/ARCHITECTURE.md)** - Kiến trúc hệ thống
+- **[IMPLEMENTATION.md](play_ai/IMPLEMENTATION.md)** - Hướng dẫn triển khai
+- **[PROMPT_ENGINEERING.md](play_ai/PROMPT_ENGINEERING.md)** - Thiết kế prompt
+- **[API_REFERENCE.md](play_ai/API_REFERENCE.md)** - Tham khảo API
+
 ## 📱 Bluetooth Multiplayer
 
 Tài liệu kỹ thuật cho chức năng chơi 2 máy qua Bluetooth:
@@ -15,6 +25,12 @@ Tài liệu kỹ thuật cho chức năng chơi 2 máy qua Bluetooth:
 ```
 doc/
 ├── INDEX.md                    ← File này
+├── play_ai/                    ← Gemini AI docs (NEW)
+│   ├── README.md
+│   ├── ARCHITECTURE.md
+│   ├── IMPLEMENTATION.md
+│   ├── PROMPT_ENGINEERING.md
+│   └── API_REFERENCE.md
 ├── multiplayer_bluetooth/      ← Bluetooth docs
 │   ├── README.md
 │   ├── SETUP_GUIDE.md

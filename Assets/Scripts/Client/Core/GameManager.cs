@@ -11,7 +11,7 @@ public class GameManager : MonoBehaviour, IGameManager
     [Header("AI Settings")]
     [SerializeField] private bool isAIEnabled = false;
     [SerializeField] private PlayerTurn aiPlayer = PlayerTurn.P2;
-    [SerializeField] private AIDifficulty aiDifficulty = AIDifficulty.Easy;
+    [SerializeField] private AIDifficulty aiDifficulty = AIDifficulty.Gemini;
     
     [Header("Game Mode")]
     public GameMode currentMode = GameMode.Local;
@@ -47,6 +47,20 @@ public class GameManager : MonoBehaviour, IGameManager
     public HighlighCellSelected HighlightCellSelected => _highlightCellSelected;
     public PlayerTurn _currentTurn => _turnManager.CurrentTurn;
     public States _currentState => _turnManager.CurrentState;
+    
+    public void SetAIMode(bool enabled)
+    {
+        isAIEnabled = enabled;
+        if (enabled && AIManager.Instance != null)
+        {
+            AIManager.Instance.SetAIDifficulty(aiDifficulty);
+            Debug.Log($"AI Mode: ON ({aiDifficulty})");
+        }
+        else
+        {
+            Debug.Log("AI Mode: OFF (2 players)");
+        }
+    }
 
     #region Initialize
     public void Initialize(GameState gameState)
@@ -69,6 +83,14 @@ public class GameManager : MonoBehaviour, IGameManager
         _animationController = new AnimationController(this, _uiController);
         _moveHandler = new MoveHandler(this, _boardManager, _scoreManager, _animationController, _turnManager);
 
+        // Create AIManager if not exists
+        if (AIManager.Instance == null)
+        {
+            var aiGO = new GameObject("AIManager");
+            aiGO.AddComponent<AIManager>();
+            DontDestroyOnLoad(aiGO);
+        }
+        
         // Initialize AI if enabled
         if (isAIEnabled && AIManager.Instance != null)
         {

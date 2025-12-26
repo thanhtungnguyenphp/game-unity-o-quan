@@ -177,9 +177,24 @@ public class LoadingState : MonoBehaviour, GameStateMachine
         yield return null;
     }
 
-    public void CallbackPlayNow()
+    private bool _pendingAIMode = false;
+    
+    public void CallbackPlayNow(bool vsAI)
     {   
-        StartCoroutine(LoadData());
+        _pendingAIMode = vsAI;
+        StartCoroutine(LoadDataWithAI(vsAI));
+    }
+    
+    private IEnumerator LoadDataWithAI(bool vsAI)
+    {
+        yield return LoadData();
+        
+        // Set AI mode after scene loaded
+        yield return new WaitForSeconds(0.5f);
+        if (GameManager.instance != null)
+        {
+            GameManager.instance.SetAIMode(vsAI);
+        }
     }
 
     public void CallbackClickSetting()

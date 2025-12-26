@@ -23,5 +23,6 @@ public enum AIDifficulty
 {
     Easy,
     Medium,
-    Hard
+    Hard,
+    Gemini
 }

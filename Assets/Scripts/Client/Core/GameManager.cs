@@ -11,7 +11,7 @@ public class GameManager : MonoBehaviour, IGameManager
     [Header("AI Settings")]
     [SerializeField] private bool isAIEnabled = false;
     [SerializeField] private PlayerTurn aiPlayer = PlayerTurn.P2;
-    [SerializeField] private AIDifficulty aiDifficulty = AIDifficulty.Easy;
+    [SerializeField] private AIDifficulty aiDifficulty = AIDifficulty.Gemini;
     
     [Header("Game Mode")]
     public GameMode currentMode = GameMode.Local;
@@ -47,6 +47,20 @@ public class GameManager : MonoBehaviour, IGameManager
     public HighlighCellSelected HighlightCellSelected => _highlightCellSelected;
     public PlayerTurn _currentTurn => _turnManager.CurrentTurn;
     public States _currentState => _turnManager.CurrentState;
+    
+    public void SetAIMode(bool enabled)
+    {
+        isAIEnabled = enabled;
+        if (enabled && AIManager.Instance != null)
+        {
+            AIManager.Instance.SetAIDifficulty(aiDifficulty);
+            Debug.Log($"AI Mode: ON ({aiDifficulty})");
+        }
+        else
+        {
+            Debug.Log("AI Mode: OFF (2 players)");
+        }
+    }
 
     #region Initialize
     public void Initialize(GameState gameState)
@@ -69,6 +83,14 @@ public class GameManager : MonoBehaviour, IGameManager
         _animationController = new AnimationController(this, _uiController);
         _moveHandler = new MoveHandler(this, _boardManager, _scoreManager, _animationController, _turnManager);
 
+        // Create AIManager if not exists
+        if (AIManager.Instance == null)
+        {
+            var aiGO = new GameObject("AIManager");
+            aiGO.AddComponent<AIManager>();
+            DontDestroyOnLoad(aiGO);
+        }
+        
         // Initialize AI if enabled
         if (isAIEnabled && AIManager.Instance != null)
         {
@@ -122,7 +144,13 @@ public class GameManager : MonoBehaviour, IGameManager
         }
 
         _highlightCellSelected.ShowHighlightCells(_turnManager.SelectedIndex);
-        _uiController.ShowDirection();
+        
+        // Chỉ hiện mũi tên khi lượt người chơi (không phải AI)
+        bool isAICurrentTurn = isAIEnabled && _turnManager.CurrentTurn == aiPlayer;
+        if (!isAICurrentTurn)
+        {
+            _uiController.ShowDirection();
+        }
     }
     #endregion
 
@@ -224,11 +252,20 @@ public class GameManager : MonoBehaviour, IGameManager
                 _turnManager.SwitchTurn();
                 _turnManager.SetState(States.SelectingCell);
                 
-                // Trigger AI move if it's AI's turn
-                if (isAIEnabled && _turnManager.CurrentTurn == aiPlayer)
+                // Update turn indicator
+                bool isAITurn = isAIEnabled && _turnManager.CurrentTurn == aiPlayer;
+                if (isAITurn)
                 {
                     StartCoroutine(HandleAITurn());
                 }
+                else if (isAIEnabled)
+                {
+                    TurnIndicatorUI.Instance?.ShowPlayerTurn();
+                }
+            }
+            else
+            {
+                TurnIndicatorUI.Instance?.Hide();
             }
         }
     }
@@ -242,8 +279,13 @@ public class GameManager : MonoBehaviour, IGameManager
             yield break;
         }
 
+        // Show AI thinking UI
+        TurnIndicatorUI.Instance?.ShowAITurn();
+        TurnIndicatorUI.Instance?.ShowThinking();
+        
+        yield return new WaitForSeconds(0.3f); // Brief pause so player sees it's AI turn
+
         // Execute AI move
-        // Note: Cannot use try-catch with yield in C#
         yield return AIManager.Instance.MakeAIMove(
             _boardManager.board,
             _turnManager.CurrentTurn,
@@ -251,25 +293,27 @@ public class GameManager : MonoBehaviour, IGameManager
             _boardManager.Quan2Available,
             (cellIndex, direction) =>
             {
+                TurnIndicatorUI.Instance?.HideThinking();
+                
                 try
                 {
                     if (cellIndex >= 0 && cellIndex < GameConstants.BOARD_SIZE)
                     {
+                        // Highlight AI's chosen cell briefly
+                        _uiController?.PulseCellEffect(cellIndex);
+                        
                         OnSelectCell(cellIndex);
                         OnSelectDirection(direction);
                     }
                     else
                     {
                         Debug.LogError($"❌ AI returned invalid move: {cellIndex}");
-                        // Recover by allowing player to continue
                         _turnManager.SetState(States.SelectingCell);
                     }
                 }
                 catch (System.Exception e)
                 {
                     Debug.LogError($"❌ Error during AI turn: {e.Message}");
-                    Debug.LogException(e);
-                    // Recover to player selection state
                     _turnManager.SetState(States.SelectingCell);
                 }
             }
@@ -379,6 +423,28 @@ public class GameManager : MonoBehaviour, IGameManager
         // Clear undo history on reset
         if (UndoManager.Instance != null)
             UndoManager.Instance.ClearHistory();
+        
+        // Show turn indicator for AI mode
+        if (isAIEnabled)
+        {
+            // Create TurnIndicatorUI if not exists
+            if (TurnIndicatorUI.Instance == null)
+            {
+                var canvas = GetComponentInChildren<Canvas>();
+                if (canvas != null)
+                {
+                    var go = new GameObject("TurnIndicatorUI");
+                    go.transform.SetParent(canvas.transform, false);
+                    go.AddComponent<TurnIndicatorUI>();
+                }
+            }
+            
+            // P1 always starts, show appropriate indicator
+            if (aiPlayer == PlayerTurn.P1)
+                StartCoroutine(HandleAITurn());
+            else
+                TurnIndicatorUI.Instance?.ShowPlayerTurn();
+        }
     }
     #endregion
 

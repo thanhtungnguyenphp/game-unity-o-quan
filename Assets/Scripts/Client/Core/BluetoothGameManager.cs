@@ -14,6 +14,7 @@ public class BluetoothGameManager : MonoBehaviour
     
     private BluetoothHandler btHandler;
     private bool isConnected = false;
+    private bool wasConnected = false;
     
     void Awake()
     {
@@ -172,6 +173,7 @@ public class BluetoothGameManager : MonoBehaviour
     void OnConnected(string address)
     {
         isConnected = true;
+        wasConnected = true;
         Debug.Log($"✅ Connected to {address}!");
         
         UnityMainThreadDispatcher.Instance().Enqueue(() =>
@@ -183,14 +185,21 @@ public class BluetoothGameManager : MonoBehaviour
     
     void OnDisconnected(string address)
     {
-        isConnected = false;
         Debug.Log($"❌ Disconnected from {address}");
         
-        UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        // Only notify UI if we were actually connected before
+        bool shouldNotifyUI = wasConnected || isConnected;
+        isConnected = false;
+        wasConnected = false;
+        
+        if (shouldNotifyUI)
         {
-            BluetoothUI.Instance?.OnDisconnected();
-            HandleDisconnection();
-        });
+            UnityMainThreadDispatcher.Instance().Enqueue(() =>
+            {
+                BluetoothUI.Instance?.OnDisconnected();
+                HandleDisconnection();
+            });
+        }
     }
     
     private void HandleDisconnection()

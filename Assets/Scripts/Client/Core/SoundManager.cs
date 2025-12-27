@@ -184,6 +184,9 @@ public class SoundManager : MonoBehaviour
         musicSource.volume = _musicEnabled ? (_musicVol * _masterVol) : 0f;
         // SFX volume applied on PlayOneShot if _sfxEnabled
     }
+    
+    public float GetMusicVolume() => _musicVol;
+    public float GetSFXVolume() => _sfxVol;
 
     #endregion
 }

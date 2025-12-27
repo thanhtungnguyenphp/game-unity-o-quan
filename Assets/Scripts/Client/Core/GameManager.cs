@@ -53,6 +53,15 @@ public class GameManager : MonoBehaviour, IGameManager
         isAIEnabled = enabled;
         if (enabled && AIManager.Instance != null)
         {
+            // Load difficulty from PlayerPrefs
+            int savedDiff = PlayerPrefs.GetInt("AIDifficulty", 3);
+            aiDifficulty = savedDiff switch
+            {
+                0 => AIDifficulty.Easy,
+                1 => AIDifficulty.Medium,
+                2 => AIDifficulty.Hard,
+                _ => AIDifficulty.Gemini
+            };
             AIManager.Instance.SetAIDifficulty(aiDifficulty);
             Debug.Log($"AI Mode: ON ({aiDifficulty})");
         }

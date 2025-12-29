@@ -29,14 +29,19 @@ public class BluetoothGameManager : MonoBehaviour
     
     void Start()
     {
-        InitializeBluetooth();
+        StartCoroutine(InitializeBluetooth());
     }
     
-    void InitializeBluetooth()
+    System.Collections.IEnumerator InitializeBluetooth()
     {
         Debug.Log("🔧 Initializing Bluetooth...");
         
         btHandler = BluetoothHandler.Instance;
+        
+        // Wait for Bluetooth to be enabled
+        Debug.Log("⏳ Waiting for Bluetooth to be enabled...");
+        yield return new WaitUntil(() => btHandler.Enabled);
+        Debug.Log("✅ Bluetooth is enabled");
         
         // Subscribe to events
         btHandler.ScanStartedAction += OnScanStarted;
@@ -48,16 +53,18 @@ public class BluetoothGameManager : MonoBehaviour
         btHandler.DataReceivedAction += OnDataReceived;
         btHandler.ErrorAction += OnError;
         
+        // Enable pairing by default
+        btHandler.SetPairing(true);
+        
         Debug.Log("✅ Bluetooth initialized");
     }
     
     // Host creates game
     public void CreateGame()
     {
-        if (btHandler == null)
+        if (btHandler == null || !btHandler.Enabled)
         {
-            Debug.LogError("❌ BluetoothHandler not initialized!");
-            InitializeBluetooth();
+            Debug.LogError("❌ Bluetooth not ready!");
             return;
         }
         
@@ -66,40 +73,76 @@ public class BluetoothGameManager : MonoBehaviour
         
         Debug.Log("🔵 Creating Bluetooth game...");
         
+        // Disconnect any existing connection first
+        btHandler.Disconnect();
+        
         // Set device name
         btHandler.SetDeviceName("OQuanGame");
         
-        // Make discoverable
+        // Make discoverable and start server (like example)
         btHandler.StartDiscoverable(300); // 5 minutes
-        
-        // Start server
         btHandler.StartServer();
         
-        Debug.Log("🔵 Waiting for player...");
+        Debug.Log("🔵 Server started, waiting for player...");
     }
     
     // Client joins game
     public void JoinGame()
     {
-        if (btHandler == null)
+        if (btHandler == null || !btHandler.Enabled)
         {
-            Debug.LogError("❌ BluetoothHandler not initialized!");
-            InitializeBluetooth();
+            Debug.LogError("❌ Bluetooth not ready!");
             return;
         }
         
         isHost = false;
         myTurn = PlayerTurn.P2;
         
-        Debug.Log("🔍 Joining Bluetooth game...");
+        Debug.Log("🔍 Scanning for games...");
         
-        // Start scanning
+        // Enable pairing
+        btHandler.SetPairing(true);
+        
+        // First check paired devices
+        var pairedDevices = btHandler.PairedDevices;
+        Debug.Log($"📋 Found {pairedDevices.Length} paired devices");
+        foreach (var device in pairedDevices)
+        {
+            Debug.Log($"📱 Paired: {device.name} ({device.address})");
+            // Add paired devices to UI first
+            UnityMainThreadDispatcher.Instance().Enqueue(() =>
+            {
+                BluetoothUI.Instance?.AddDevice(device.name + " (Paired)", device.address);
+            });
+        }
+        
+        // Then scan for new devices
         btHandler.StartScan();
     }
     
     public void ConnectToDevice(string address)
     {
+        if (string.IsNullOrEmpty(address))
+        {
+            Debug.LogError("❌ Invalid address!");
+            return;
+        }
+        
         Debug.Log($"🔌 Connecting to {address}...");
+        
+        // Stop scanning before connect
+        btHandler.StopScan();
+        
+        // Enable pairing mode for new devices
+        btHandler.SetPairing(true);
+        
+        // Small delay to ensure pairing is enabled
+        StartCoroutine(ConnectAfterDelay(address, 0.5f));
+    }
+    
+    private System.Collections.IEnumerator ConnectAfterDelay(string address, float delay)
+    {
+        yield return new WaitForSeconds(delay);
         btHandler.ConnectAsClient(address);
     }
     
@@ -315,11 +358,45 @@ public class BluetoothGameManager : MonoBehaviour
     
     void StartGame()
     {
+        Debug.Log("🎮 Starting Bluetooth game...");
+        
+        var currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        Debug.Log($"📍 Current scene: {currentScene}");
+        
+        if (currentScene == "GameScene")
+        {
+            // Already in game scene, just set mode and reset
+            StartCoroutine(SetupGameAfterDelay());
+        }
+        else
+        {
+            // Load game scene
+            UnityEngine.SceneManagement.SceneManager.LoadScene("GameScene");
+        }
+    }
+    
+    private System.Collections.IEnumerator SetupGameAfterDelay()
+    {
+        // Wait for GameManager to be ready
+        yield return new WaitForSeconds(0.5f);
+        
+        int attempts = 0;
+        while (GameManager.instance == null && attempts < 10)
+        {
+            yield return new WaitForSeconds(0.2f);
+            attempts++;
+        }
+        
         if (GameManager.instance != null)
         {
+            Debug.Log("🎮 Setting Bluetooth mode...");
             GameManager.instance.currentMode = GameMode.Bluetooth;
+            GameManager.instance.ResetGame();
         }
-        UnityEngine.SceneManagement.SceneManager.LoadScene("GameScene");
+        else
+        {
+            Debug.LogError("❌ GameManager not found!");
+        }
     }
     
     int GetCurrentTurn()

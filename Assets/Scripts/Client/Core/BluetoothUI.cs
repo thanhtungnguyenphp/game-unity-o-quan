@@ -234,7 +234,11 @@ public class BluetoothUI : MonoBehaviour
     
     public void AddDevice(string name, string address)
     {
-        if (!name.Contains("OQuan") || devices.Exists(d => d.address == address)) return;
+        // Filter: chỉ hiện OQuan hoặc Paired devices
+        bool isOQuan = name.Contains("OQuan");
+        bool isPaired = name.Contains("Paired");
+        if (!isOQuan && !isPaired) return;
+        if (devices.Exists(d => d.address == address)) return;
         
         devices.Add(new DeviceInfo { name = name, address = address });
         if (txtScanning) txtScanning.text = $"Tìm thấy {devices.Count} phòng";
@@ -264,7 +268,7 @@ public class BluetoothUI : MonoBehaviour
     {
         Debug.Log($"🔵 Connect to {name}");
         BluetoothGameManager.Instance?.ConnectToDevice(address);
-        ShowWaiting("Đang kết nối...");
+        ShowWaiting("Đang kết nối...\n\nNếu có popup ghép đôi,\nhãy chấp nhận trên CẢ 2 thiết bị");
     }
     
     // === CALLBACKS ===

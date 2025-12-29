@@ -19,6 +19,8 @@ Tài liệu kỹ thuật cho chức năng chơi 2 máy qua Bluetooth:
 - **[API_REFERENCE.md](multiplayer_bluetooth/API_REFERENCE.md)** - Chi tiết API
 - **[PROTOCOL.md](multiplayer_bluetooth/PROTOCOL.md)** - Giao thức truyền dữ liệu
 - **[TROUBLESHOOTING.md](multiplayer_bluetooth/TROUBLESHOOTING.md)** - Xử lý lỗi
+- **[CODE_ANALYSIS.md](multiplayer_bluetooth/CODE_ANALYSIS.md)** - 📊 Phân tích code & đánh giá (NEW)
+- **[DEVELOPMENT_SOLUTION.md](multiplayer_bluetooth/DEVELOPMENT_SOLUTION.md)** - 🚀 Giải pháp phát triển (NEW)
 
 ## 📁 Cấu trúc thư mục
 
@@ -36,10 +38,12 @@ doc/
 │   ├── SETUP_GUIDE.md
 │   ├── API_REFERENCE.md
 │   ├── PROTOCOL.md
-│   └── TROUBLESHOOTING.md
+│   ├── TROUBLESHOOTING.md
+│   ├── CODE_ANALYSIS.md        ← NEW: Phân tích code
+│   └── DEVELOPMENT_SOLUTION.md ← NEW: Giải pháp phát triển
 └── error/                      ← Screenshots lỗi
 ```
 
 ---
 
-**Last Updated:** 2025-12-26
+**Last Updated:** 2025-12-29

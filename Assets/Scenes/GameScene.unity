@@ -2005,6 +2005,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   isHost: 0
   myTurn: 0
+  isConnected: 0
 --- !u!4 &193379174
 Transform:
   m_ObjectHideFlags: 0
@@ -8230,6 +8231,89 @@ MonoBehaviour:
   m_EffectColor: {r: 0, g: 0, b: 0, a: 0.5}
   m_EffectDistance: {x: 2, y: -2}
   m_UseGraphicAlpha: 1
+--- !u!1 &899597176
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 899597181}
+  - component: {fileID: 899597180}
+  - component: {fileID: 899597179}
+  - component: {fileID: 899597178}
+  - component: {fileID: 899597177}
+  m_Layer: 0
+  m_Name: BluetoothManagers
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &899597177
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 899597176}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 07e46eb2756a045e89fc525ae784d578, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &899597178
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 899597176}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f6d0835abf44e4186bc4f8dbac6c948f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &899597179
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 899597176}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0bb0120f1b3904f49b55d5da6a607b07, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &899597180
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 899597176}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 40bbe0c3e59734a36beee3fb3e7881b2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!4 &899597181
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 899597176}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &905907879
 GameObject:
   m_ObjectHideFlags: 0
@@ -10146,21 +10230,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e097640711cbd426f9ddd9ddf351728b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  popupPanel: {fileID: 742741027}
-  menuContent: {fileID: 126884082}
-  waitingContent: {fileID: 1202652717}
-  deviceListContent: {fileID: 646384485}
-  btnCreateRoom: {fileID: 923491927}
-  btnJoinRoom: {fileID: 934570148}
-  btnClose: {fileID: 1750382344}
-  txtStatus: {fileID: 1408662255}
-  txtRoomName: {fileID: 1303682079}
-  btnCancelWait: {fileID: 109580565}
-  deviceContainer: {fileID: 771643397}
-  deviceItemPrefab: {fileID: 0}
-  btnBackFromList: {fileID: 642257816}
-  txtScanning: {fileID: 2036744759}
-  inputRoomName: {fileID: 0}
 --- !u!224 &1096196965 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 5328732883203057320, guid: 3d4e709653e348b448831c651518818f, type: 3}
@@ -20528,3 +20597,4 @@ SceneRoots:
   - {fileID: 1492315809}
   - {fileID: 586563905}
   - {fileID: 193379174}
+  - {fileID: 899597181}

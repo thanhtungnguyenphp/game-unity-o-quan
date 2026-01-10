@@ -254,6 +254,13 @@ public class GameManager : MonoBehaviour, IGameManager
         {
             _animationController.UpdateBoardImmediate(_boardManager.board);
             UpdateUI();
+            
+            // Notify state sync for Bluetooth mode
+            if (currentMode == GameMode.Bluetooth)
+            {
+                GameStateSync.Instance?.OnMoveExecuted();
+            }
+            
             CheckGameOver();
 
             if (_turnManager.CurrentState != States.GameOver)
@@ -418,20 +425,40 @@ public class GameManager : MonoBehaviour, IGameManager
     #region Reset Game
     public void ResetGame()
     {
-        SoundManager.Instance.PlaySFX(Config.SFX.START_GAME);
+        SoundManager.Instance?.PlaySFX(Config.SFX.START_GAME);
         StopAllCoroutines();
+
+        // Ensure managers are initialized
+        if (_scoreManager == null || _turnManager == null || _boardManager == null || _uiController == null)
+        {
+            Debug.LogWarning("⚠️ Managers not initialized, reinitializing...");
+            var gameState = FindObjectOfType<GameState>();
+            if (gameState != null) 
+            {
+                Initialize(gameState);
+            }
+            else 
+            {
+                Debug.LogError("❌ GameState not found!");
+                return;
+            }
+        }
 
         _scoreManager.Reset();
         _turnManager.Reset();
         _boardManager.ResetBoard();
 
-        _uiController.UpdateBoard(_boardManager.board);
+        _uiController?.UpdateBoard(_boardManager.board);
         UpdateUI();
         _uiController.UpdateStates(_turnManager.CurrentTurn, _turnManager.CurrentState);
         
         // Clear undo history on reset
         if (UndoManager.Instance != null)
             UndoManager.Instance.ClearHistory();
+        
+        // Reset state sync for Bluetooth mode
+        if (GameStateSync.Instance != null)
+            GameStateSync.Instance.Reset();
         
         // Show turn indicator for AI mode
         if (isAIEnabled)

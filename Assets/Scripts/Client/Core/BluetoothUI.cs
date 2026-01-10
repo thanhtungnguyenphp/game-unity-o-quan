@@ -287,4 +287,40 @@ public class BluetoothUI : MonoBehaviour
     {
         if (txtScanning) txtScanning.text = devices.Count > 0 ? $"Tìm thấy {devices.Count} phòng" : "Không tìm thấy phòng";
     }
+    
+    public void OnTimeout(string message)
+    {
+        ShowWaiting($"⏰ {message}");
+        Invoke(nameof(ShowMenu), 2f);
+    }
+    
+    // === RECONNECT UI ===
+    public void ShowReconnecting(int attempt, int maxAttempts)
+    {
+        if (overlay == null) CreateUI();
+        overlay?.SetActive(true);
+        ShowWaiting($"Đang kết nối lại...\n({attempt}/{maxAttempts})");
+    }
+    
+    public void ShowReconnectFailed(System.Action onRetry, System.Action onExit)
+    {
+        if (overlay == null) CreateUI();
+        overlay?.SetActive(true);
+        
+        menuPanel?.SetActive(false);
+        waitingPanel?.SetActive(false);
+        devicePanel?.SetActive(false);
+        
+        // Create reconnect failed panel
+        var failPanel = CreateCenterPanel(overlay.transform, "FailPanel");
+        CreateText(failPanel.transform, "❌ Không thể kết nối lại", 28, 80, Color.white);
+        CreateButton(failPanel.transform, "🔄 THỬ LẠI", 0, new Color(0.2f, 0.5f, 0.3f), () => {
+            Destroy(failPanel);
+            onRetry?.Invoke();
+        });
+        CreateButton(failPanel.transform, "🚪 THOÁT", -80, new Color(0.5f, 0.3f, 0.3f), () => {
+            Destroy(failPanel);
+            onExit?.Invoke();
+        });
+    }
 }

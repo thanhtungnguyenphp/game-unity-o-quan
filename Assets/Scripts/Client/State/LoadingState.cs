@@ -226,20 +226,24 @@ public class LoadingState : MonoBehaviour, GameStateMachine
     }
     
     /// <summary>
-    /// Start game directly without loading screen (when loaded from button)
+    /// Start game directly without loading screen (when loaded from Bluetooth)
     /// </summary>
     private IEnumerator DirectStartGame()
     {
-        Debug.Log("🚀 DirectStartGame: Skipping loading screen");
+        string gameMode = PlayerPrefs.GetString("GameMode", "");
+        Debug.Log($"🚀 DirectStartGame: mode={gameMode}");
         
-        // Hide loading UI immediately
+        // Wait for Main to initialize
+        yield return new WaitForSeconds(0.5f);
+        
+        // Hide loading UI
         if (UIObject != null)
         {
             UIObject.SetActive(false);
             Debug.Log("✅ Loading UI hidden");
         }
         
-        // Hide splash screen if exists
+        // Hide splash screen
         if (SlashScreenControl.instance != null)
         {
             SlashScreenControl.instance.Hide();
@@ -254,12 +258,16 @@ public class LoadingState : MonoBehaviour, GameStateMachine
         yield return StartCoroutine(gameState.Init());
         Debug.Log("✅ GameState initialized");
         
-        // Wait a frame for UI to settle
-        yield return new WaitForEndOfFrame();
+        // Set Bluetooth mode
+        if (gameMode == "Bluetooth" && GameManager.instance != null)
+        {
+            GameManager.instance.currentMode = GameMode.Bluetooth;
+            Debug.Log("✅ Bluetooth mode set!");
+        }
         
-        // Transition to game state
-        Finish();
-        Debug.Log("✅ Transitioned to GameState");
+        // Enable GameState directly (don't use Finish() as MainScript may be null)
+        gameState.Enable();
+        Debug.Log("✅ GameState enabled directly");
     }
 
 }

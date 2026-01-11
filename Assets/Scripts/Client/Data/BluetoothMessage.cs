@@ -9,7 +9,8 @@ public enum BluetoothMessageType
     Ack = 3,
     RequestSync = 4,
     GameOver = 5,
-    KeyExchange = 6
+    KeyExchange = 6,
+    Ready = 7
 }
 
 [Serializable]
@@ -73,4 +74,11 @@ public class AckMessage
 public class KeyExchangeMessage
 {
     public string key;
+}
+
+[Serializable]
+public class ReadyMessage
+{
+    public bool isHost;
+    public string deviceId;
 }

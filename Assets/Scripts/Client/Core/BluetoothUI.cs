@@ -173,11 +173,16 @@ public class BluetoothUI : MonoBehaviour
         overlay?.SetActive(false);
     }
     
-    void ShowMenu()
+    public void ShowMenu()
     {
         menuPanel?.SetActive(true);
         waitingPanel?.SetActive(false);
         devicePanel?.SetActive(false);
+    }
+    
+    public void ShowWaitingHandshake()
+    {
+        ShowWaiting("Đang đồng bộ...");
     }
     
     void ShowWaiting(string status)
@@ -274,8 +279,9 @@ public class BluetoothUI : MonoBehaviour
     // === CALLBACKS ===
     public void OnConnected()
     {
-        Debug.Log("🔵 Connected!");
+        Debug.Log("🔵 BluetoothUI.OnConnected - Hiding overlay");
         Hide();
+        Debug.Log($"🔵 Overlay active: {overlay?.activeSelf}");
     }
     
     public void OnDisconnected()

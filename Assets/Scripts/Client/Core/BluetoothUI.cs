@@ -173,11 +173,16 @@ public class BluetoothUI : MonoBehaviour
         overlay?.SetActive(false);
     }
     
-    void ShowMenu()
+    public void ShowMenu()
     {
         menuPanel?.SetActive(true);
         waitingPanel?.SetActive(false);
         devicePanel?.SetActive(false);
+    }
+    
+    public void ShowWaitingHandshake()
+    {
+        ShowWaiting("Đang đồng bộ...");
     }
     
     void ShowWaiting(string status)
@@ -234,7 +239,11 @@ public class BluetoothUI : MonoBehaviour
     
     public void AddDevice(string name, string address)
     {
-        if (!name.Contains("OQuan") || devices.Exists(d => d.address == address)) return;
+        // Filter: chỉ hiện OQuan hoặc Paired devices
+        bool isOQuan = name.Contains("OQuan");
+        bool isPaired = name.Contains("Paired");
+        if (!isOQuan && !isPaired) return;
+        if (devices.Exists(d => d.address == address)) return;
         
         devices.Add(new DeviceInfo { name = name, address = address });
         if (txtScanning) txtScanning.text = $"Tìm thấy {devices.Count} phòng";
@@ -264,14 +273,15 @@ public class BluetoothUI : MonoBehaviour
     {
         Debug.Log($"🔵 Connect to {name}");
         BluetoothGameManager.Instance?.ConnectToDevice(address);
-        ShowWaiting("Đang kết nối...");
+        ShowWaiting("Đang kết nối...\n\nNếu có popup ghép đôi,\nhãy chấp nhận trên CẢ 2 thiết bị");
     }
     
     // === CALLBACKS ===
     public void OnConnected()
     {
-        Debug.Log("🔵 Connected!");
+        Debug.Log("🔵 BluetoothUI.OnConnected - Hiding overlay");
         Hide();
+        Debug.Log($"🔵 Overlay active: {overlay?.activeSelf}");
     }
     
     public void OnDisconnected()
@@ -282,5 +292,41 @@ public class BluetoothUI : MonoBehaviour
     public void OnScanFinished()
     {
         if (txtScanning) txtScanning.text = devices.Count > 0 ? $"Tìm thấy {devices.Count} phòng" : "Không tìm thấy phòng";
+    }
+    
+    public void OnTimeout(string message)
+    {
+        ShowWaiting($"⏰ {message}");
+        Invoke(nameof(ShowMenu), 2f);
+    }
+    
+    // === RECONNECT UI ===
+    public void ShowReconnecting(int attempt, int maxAttempts)
+    {
+        if (overlay == null) CreateUI();
+        overlay?.SetActive(true);
+        ShowWaiting($"Đang kết nối lại...\n({attempt}/{maxAttempts})");
+    }
+    
+    public void ShowReconnectFailed(System.Action onRetry, System.Action onExit)
+    {
+        if (overlay == null) CreateUI();
+        overlay?.SetActive(true);
+        
+        menuPanel?.SetActive(false);
+        waitingPanel?.SetActive(false);
+        devicePanel?.SetActive(false);
+        
+        // Create reconnect failed panel
+        var failPanel = CreateCenterPanel(overlay.transform, "FailPanel");
+        CreateText(failPanel.transform, "❌ Không thể kết nối lại", 28, 80, Color.white);
+        CreateButton(failPanel.transform, "🔄 THỬ LẠI", 0, new Color(0.2f, 0.5f, 0.3f), () => {
+            Destroy(failPanel);
+            onRetry?.Invoke();
+        });
+        CreateButton(failPanel.transform, "🚪 THOÁT", -80, new Color(0.5f, 0.3f, 0.3f), () => {
+            Destroy(failPanel);
+            onExit?.Invoke();
+        });
     }
 }

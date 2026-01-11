@@ -3,7 +3,7 @@ using BlueUnity;
 
 /// <summary>
 /// Bluetooth Game Manager - Handles multiplayer via Bluetooth
-/// Uses BlueUnity plugin
+/// Uses BlueUnity plugin with proper handshake protocol
 /// </summary>
 public class BluetoothGameManager : MonoBehaviour
 {
@@ -11,10 +11,18 @@ public class BluetoothGameManager : MonoBehaviour
     
     public bool isHost = false;
     public PlayerTurn myTurn;
+    public bool isConnected = false;
     
     private BluetoothHandler btHandler;
-    private bool isConnected = false;
     private bool wasConnected = false;
+    private int moveNumber = 0;
+    private bool useEncryption = false;
+    private bool waitingForRoleResolution = false;
+    
+    // Handshake state
+    private bool handshakeSent = false;
+    private bool handshakeReceived = false;
+    private bool gameStarted = false;
     
     void Awake()
     {
@@ -29,14 +37,19 @@ public class BluetoothGameManager : MonoBehaviour
     
     void Start()
     {
-        InitializeBluetooth();
+        StartCoroutine(InitializeBluetooth());
     }
     
-    void InitializeBluetooth()
+    System.Collections.IEnumerator InitializeBluetooth()
     {
         Debug.Log("🔧 Initializing Bluetooth...");
         
         btHandler = BluetoothHandler.Instance;
+        
+        // Wait for Bluetooth to be enabled
+        Debug.Log("⏳ Waiting for Bluetooth to be enabled...");
+        yield return new WaitUntil(() => btHandler.Enabled);
+        Debug.Log("✅ Bluetooth is enabled");
         
         // Subscribe to events
         btHandler.ScanStartedAction += OnScanStarted;
@@ -48,58 +61,164 @@ public class BluetoothGameManager : MonoBehaviour
         btHandler.DataReceivedAction += OnDataReceived;
         btHandler.ErrorAction += OnError;
         
+        // Enable pairing by default
+        btHandler.SetPairing(true);
+        
+        // Initialize encryption
+        BluetoothEncryption.GenerateSessionKey();
+        
+        // Setup role resolver
+        if (BluetoothRoleResolver.Instance != null)
+            BluetoothRoleResolver.Instance.OnRoleResolved += OnRoleResolved;
+        
         Debug.Log("✅ Bluetooth initialized");
+    }
+    
+    void OnRoleResolved(bool resolvedAsHost)
+    {
+        if (!waitingForRoleResolution) return;
+        waitingForRoleResolution = false;
+        
+        isHost = resolvedAsHost;
+        myTurn = isHost ? PlayerTurn.P1 : PlayerTurn.P2;
+        Debug.Log($"🎯 Role assigned: {(isHost ? "HOST (P1)" : "CLIENT (P2)")}");
     }
     
     // Host creates game
     public void CreateGame()
     {
-        if (btHandler == null)
+        if (btHandler == null || !btHandler.Enabled)
         {
-            Debug.LogError("❌ BluetoothHandler not initialized!");
-            InitializeBluetooth();
+            Debug.LogError("❌ Bluetooth not ready!");
             return;
         }
+        
+        // Reset all state for new game
+        ResetState();
         
         isHost = true;
         myTurn = PlayerTurn.P1;
         
         Debug.Log("🔵 Creating Bluetooth game...");
         
+        // Disconnect any existing connection first
+        btHandler.Disconnect();
+        
         // Set device name
         btHandler.SetDeviceName("OQuanGame");
         
-        // Make discoverable
+        // Make discoverable and start server (like example)
         btHandler.StartDiscoverable(300); // 5 minutes
-        
-        // Start server
         btHandler.StartServer();
         
-        Debug.Log("🔵 Waiting for player...");
+        // Start timeout
+        BluetoothTimeout.Instance?.StartTimeout(60f, OnCreateTimeout);
+        
+        Debug.Log("🔵 Server started, waiting for player...");
+    }
+    
+    void ResetState()
+    {
+        isConnected = false;
+        wasConnected = false;
+        handshakeSent = false;
+        handshakeReceived = false;
+        gameStarted = false;
+        moveNumber = 0;
+    }
+    
+    void OnCreateTimeout()
+    {
+        Debug.LogWarning("⏰ Create room timeout");
+        btHandler?.Disconnect();
+        UnityMainThreadDispatcher.Instance().Enqueue(() => {
+            BluetoothUI.Instance?.OnTimeout("Hết thời gian chờ kết nối");
+        });
     }
     
     // Client joins game
     public void JoinGame()
     {
-        if (btHandler == null)
+        if (btHandler == null || !btHandler.Enabled)
         {
-            Debug.LogError("❌ BluetoothHandler not initialized!");
-            InitializeBluetooth();
+            Debug.LogError("❌ Bluetooth not ready!");
             return;
         }
+        
+        // Reset all state for new game
+        ResetState();
         
         isHost = false;
         myTurn = PlayerTurn.P2;
         
-        Debug.Log("🔍 Joining Bluetooth game...");
+        Debug.Log("🔍 Scanning for games...");
         
-        // Start scanning
+        // Enable pairing
+        btHandler.SetPairing(true);
+        
+        // First check paired devices
+        var pairedDevices = btHandler.PairedDevices;
+        Debug.Log($"📋 Found {pairedDevices.Length} paired devices");
+        foreach (var device in pairedDevices)
+        {
+            Debug.Log($"📱 Paired: {device.name} ({device.address})");
+            // Add paired devices to UI first
+            UnityMainThreadDispatcher.Instance().Enqueue(() =>
+            {
+                BluetoothUI.Instance?.AddDevice(device.name + " (Paired)", device.address);
+            });
+        }
+        
+        // Then scan for new devices with timeout
         btHandler.StartScan();
+        BluetoothTimeout.Instance?.StartScanTimeout(OnScanTimeout);
+    }
+    
+    void OnScanTimeout()
+    {
+        Debug.LogWarning("⏰ Scan timeout");
+        btHandler?.StopScan();
+        UnityMainThreadDispatcher.Instance().Enqueue(() => {
+            BluetoothUI.Instance?.OnScanFinished();
+        });
     }
     
     public void ConnectToDevice(string address)
     {
+        if (string.IsNullOrEmpty(address))
+        {
+            Debug.LogError("❌ Invalid address!");
+            return;
+        }
+        
         Debug.Log($"🔌 Connecting to {address}...");
+        
+        // Stop scanning before connect
+        btHandler.StopScan();
+        BluetoothTimeout.Instance?.CancelTimeout();
+        
+        // Enable pairing mode for new devices
+        btHandler.SetPairing(true);
+        
+        // Start connect timeout
+        BluetoothTimeout.Instance?.StartConnectTimeout(OnConnectTimeout);
+        
+        // Small delay to ensure pairing is enabled
+        StartCoroutine(ConnectAfterDelay(address, 0.5f));
+    }
+    
+    void OnConnectTimeout()
+    {
+        Debug.LogWarning("⏰ Connect timeout");
+        btHandler?.Disconnect();
+        UnityMainThreadDispatcher.Instance().Enqueue(() => {
+            BluetoothUI.Instance?.OnTimeout("Không thể kết nối");
+        });
+    }
+    
+    private System.Collections.IEnumerator ConnectAfterDelay(string address, float delay)
+    {
+        yield return new WaitForSeconds(delay);
         btHandler.ConnectAsClient(address);
     }
     
@@ -111,28 +230,43 @@ public class BluetoothGameManager : MonoBehaviour
             return;
         }
         
-        // Validate our own move before sending
         if (cellIndex < 0 || cellIndex >= GameConstants.BOARD_SIZE)
         {
-            Debug.LogError($"❌ Invalid cell index to send: {cellIndex}");
+            Debug.LogError($"❌ Invalid cell index: {cellIndex}");
             return;
         }
         
-        MoveData data = new MoveData
+        var move = new MoveMessage
         {
             cellIndex = cellIndex,
             direction = direction,
-            turn = GetCurrentTurn()
+            turn = GetCurrentTurn(),
+            moveNumber = ++moveNumber
         };
+        
+        var msg = BluetoothMessage.Create(BluetoothMessageType.Move, move);
+        SendMessage(msg);
+        
+        // Notify state sync
+        GameStateSync.Instance?.OnMoveExecuted();
+        
+        Debug.Log($"📤 Sent: Cell {cellIndex}, Dir {direction}");
+    }
+    
+    public void SendMessage(BluetoothMessage msg)
+    {
+        if (!isConnected || btHandler == null) return;
         
         try
         {
-            string json = JsonUtility.ToJson(data);
+            string json = JsonUtility.ToJson(msg);
             byte[] bytes = System.Text.Encoding.UTF8.GetBytes(json);
             
-            btHandler.Write(bytes);
+            // Encrypt if enabled
+            if (useEncryption)
+                bytes = BluetoothEncryption.Encrypt(bytes);
             
-            Debug.Log($"📤 Sent: Cell {cellIndex}, Direction {direction}");
+            btHandler.Write(bytes);
         }
         catch (System.Exception e)
         {
@@ -163,6 +297,7 @@ public class BluetoothGameManager : MonoBehaviour
     void OnScanFinished()
     {
         Debug.Log("✅ Scan finished");
+        BluetoothTimeout.Instance?.CancelTimeout();
     }
     
     void OnConnecting(string address)
@@ -172,69 +307,177 @@ public class BluetoothGameManager : MonoBehaviour
     
     void OnConnected(string address)
     {
+        Debug.Log($"✅✅✅ OnConnected called! address={address}");
+        
         isConnected = true;
         wasConnected = true;
-        Debug.Log($"✅ Connected to {address}!");
+        gameStarted = true;
+        
+        BluetoothTimeout.Instance?.CancelTimeout();
+        ReconnectManager.Instance?.SaveConnectionInfo(address);
+        
+        Debug.Log($"✅ State: isConnected={isConnected}, gameStarted={gameStarted}");
         
         UnityMainThreadDispatcher.Instance().Enqueue(() =>
         {
+            Debug.Log("🎮 Enqueued: Calling OnConnected and StartGame");
             BluetoothUI.Instance?.OnConnected();
+            HeartbeatManager.Instance?.StartHeartbeat();
             StartGame();
         });
     }
     
-    void OnDisconnected(string address)
+    private System.Collections.IEnumerator SendHandshakeDelayed()
     {
-        Debug.Log($"❌ Disconnected from {address}");
+        yield return new WaitForSeconds(0.3f);
         
-        // Only notify UI if we were actually connected before
-        bool shouldNotifyUI = wasConnected || isConnected;
-        isConnected = false;
-        wasConnected = false;
+        if (!isConnected) yield break;
         
-        if (shouldNotifyUI)
+        // Send ready message
+        var ready = new ReadyMessage { isHost = this.isHost, deviceId = SystemInfo.deviceUniqueIdentifier };
+        var msg = BluetoothMessage.Create(BluetoothMessageType.Ready, ready);
+        SendMessageRaw(msg);
+        handshakeSent = true;
+        
+        Debug.Log($"📤 Sent handshake (isHost={isHost})");
+        
+        CheckBothReady();
+    }
+    
+    void CheckBothReady()
+    {
+        if (handshakeSent && handshakeReceived && !gameStarted)
         {
+            gameStarted = true;
+            Debug.Log("✅ Both devices ready, starting game!");
+            
             UnityMainThreadDispatcher.Instance().Enqueue(() =>
             {
-                BluetoothUI.Instance?.OnDisconnected();
-                HandleDisconnection();
+                BluetoothUI.Instance?.OnConnected();
+                HeartbeatManager.Instance?.StartHeartbeat();
+                StartGame();
             });
         }
     }
     
-    private void HandleDisconnection()
+    void SendMessageRaw(BluetoothMessage msg)
     {
-        Debug.Log("🔄 Handling disconnection...");
+        if (btHandler == null) return;
         
-        // Save current game state for potential resume
-        if (GameManager.instance != null)
+        try
         {
-            // Switch to local mode
-            GameManager.instance.currentMode = GameMode.Local;
-            
-            // Show disconnection notification to user
-            Debug.LogWarning("⚠️ Connection lost! Switching to local mode.");
-            
-            // Pause game to give user time to react
-            GameManager.instance.PauseGame();
+            string json = JsonUtility.ToJson(msg);
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(json);
+            btHandler.Write(bytes);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"❌ Failed to send: {e.Message}");
+        }
+    }
+    
+    void SendEncryptionKey()
+    {
+        var keyMsg = new KeyExchangeMessage { key = System.Convert.ToBase64String(BluetoothEncryption.GetSessionKey()) };
+        var msg = BluetoothMessage.Create(BluetoothMessageType.KeyExchange, keyMsg);
+        
+        // Send key unencrypted
+        string json = JsonUtility.ToJson(msg);
+        byte[] bytes = System.Text.Encoding.UTF8.GetBytes(json);
+        btHandler?.Write(bytes);
+    }
+    
+    void OnDisconnected(string address)
+    {
+        Debug.Log($"❌❌❌ OnDisconnected called! address={address}, wasConnected={wasConnected}, isConnected={isConnected}, gameStarted={gameStarted}");
+        
+        // Only handle if we were actually connected
+        if (!wasConnected && !isConnected)
+        {
+            Debug.Log("Ignoring disconnect - was not connected");
+            return;
         }
         
-        // Attempt reconnection if desired
-        // StartCoroutine(AttemptReconnection());
+        bool wasInGame = gameStarted;
+        
+        isConnected = false;
+        wasConnected = false;
+        handshakeSent = false;
+        handshakeReceived = false;
+        
+        HeartbeatManager.Instance?.StopHeartbeat();
+        
+        if (wasInGame)
+        {
+            Debug.Log("Was in game, starting reconnect...");
+            UnityMainThreadDispatcher.Instance().Enqueue(() =>
+            {
+                BluetoothUI.Instance?.OnDisconnected();
+                ReconnectManager.Instance?.StartReconnect();
+            });
+        }
+        else
+        {
+            Debug.Log("Not in game, showing menu...");
+            UnityMainThreadDispatcher.Instance().Enqueue(() =>
+            {
+                BluetoothUI.Instance?.ShowMenu();
+            });
+        }
     }
     
     void OnDataReceived(byte[] data)
     {
         string json = System.Text.Encoding.UTF8.GetString(data);
-        
         Debug.Log($"📥 Received: {json}");
         
-        MoveData move = JsonUtility.FromJson<MoveData>(json);
-        
-        UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        try
         {
-            ExecuteOpponentMove(move);
-        });
+            var msg = JsonUtility.FromJson<BluetoothMessage>(json);
+            if (msg != null && msg.type >= 0)
+            {
+                var msgType = (BluetoothMessageType)msg.type;
+                
+                // Handle Ready message for handshake
+                if (msgType == BluetoothMessageType.Ready)
+                {
+                    handshakeReceived = true;
+                    Debug.Log("📥 Received handshake from peer");
+                    UnityMainThreadDispatcher.Instance().Enqueue(() => CheckBothReady());
+                    return;
+                }
+                
+                // Handle key exchange
+                if (msgType == BluetoothMessageType.KeyExchange)
+                {
+                    var keyMsg = JsonUtility.FromJson<KeyExchangeMessage>(msg.payload);
+                    BluetoothEncryption.SetSessionKey(System.Convert.FromBase64String(keyMsg.key));
+                    Debug.Log("🔐 Encryption key received");
+                    return;
+                }
+                
+                UnityMainThreadDispatcher.Instance().Enqueue(() =>
+                {
+                    BluetoothMessageQueue.Instance?.Enqueue(msg);
+                });
+                return;
+            }
+        }
+        catch { }
+        
+        // Fallback to old MoveData format
+        try
+        {
+            var move = JsonUtility.FromJson<MoveData>(json);
+            UnityMainThreadDispatcher.Instance().Enqueue(() =>
+            {
+                ExecuteOpponentMove(move);
+            });
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"❌ Failed to parse message: {e.Message}");
+        }
     }
     
     void OnError(string error)
@@ -315,11 +558,44 @@ public class BluetoothGameManager : MonoBehaviour
     
     void StartGame()
     {
+        Debug.Log("🎮 Starting Bluetooth game...");
+        
+        // Set flag for LoadingState to detect
+        PlayerPrefs.SetString("GameMode", "Bluetooth");
+        PlayerPrefs.Save();
+        
+        // Load GameScene - LoadingState will handle the rest
+        UnityEngine.SceneManagement.SceneManager.LoadScene("GameScene");
+    }
+    
+    void OnGameSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
+    {
+        if (scene.name == "GameScene")
+        {
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnGameSceneLoaded;
+            StartCoroutine(SetModeAfterLoad());
+        }
+    }
+    
+    private System.Collections.IEnumerator SetModeAfterLoad()
+    {
+        // Wait for GameManager to be ready
+        float timeout = 3f;
+        while (GameManager.instance == null && timeout > 0)
+        {
+            yield return new WaitForSeconds(0.1f);
+            timeout -= 0.1f;
+        }
+        
         if (GameManager.instance != null)
         {
             GameManager.instance.currentMode = GameMode.Bluetooth;
+            Debug.Log("✅ Bluetooth mode set after scene load!");
         }
-        UnityEngine.SceneManagement.SceneManager.LoadScene("GameScene");
+        else
+        {
+            Debug.LogError("❌ GameManager not found after timeout!");
+        }
     }
     
     int GetCurrentTurn()
@@ -333,16 +609,25 @@ public class BluetoothGameManager : MonoBehaviour
     
     public void Disconnect()
     {
+        BluetoothTimeout.Instance?.CancelTimeout();
+        BluetoothRoleResolver.Instance?.Reset();
         if (btHandler != null)
         {
             btHandler.Disconnect();
         }
         isConnected = false;
+        waitingForRoleResolution = false;
+        handshakeSent = false;
+        handshakeReceived = false;
+        gameStarted = false;
     }
     
     void OnDestroy()
     {
         Disconnect();
+        
+        if (BluetoothRoleResolver.Instance != null)
+            BluetoothRoleResolver.Instance.OnRoleResolved -= OnRoleResolved;
         
         if (btHandler != null)
         {

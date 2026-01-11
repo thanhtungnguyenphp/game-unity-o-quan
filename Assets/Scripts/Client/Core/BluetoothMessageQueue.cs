@@ -63,6 +63,7 @@ public class BluetoothMessageQueue : MonoBehaviour
     private IEnumerator ProcessMove(BluetoothMessage msg)
     {
         var move = JsonUtility.FromJson<MoveMessage>(msg.payload);
+        Debug.Log($"📥 Processing opponent move: cell={move.cellIndex}, dir={move.direction}");
         
         if (!IsValidMove(move))
         {
@@ -70,8 +71,8 @@ public class BluetoothMessageQueue : MonoBehaviour
             yield break;
         }
         
-        GameManager.instance.OnSelectCell(move.cellIndex);
-        GameManager.instance.OnSelectDirection(move.direction);
+        // Execute opponent move directly (bypass CanSelectCellBluetooth check)
+        GameManager.instance.ExecuteOpponentMove(move.cellIndex, move.direction);
         
         yield return new WaitForSeconds(0.5f);
         SendAck(msg.messageId, true);

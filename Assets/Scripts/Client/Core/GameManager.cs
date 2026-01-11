@@ -558,6 +558,32 @@ public class GameManager : MonoBehaviour, IGameManager
     }
     
     /// <summary>
+    /// Execute opponent's move received via Bluetooth (bypasses turn check)
+    /// </summary>
+    public void ExecuteOpponentMove(int cellIndex, int direction)
+    {
+        Debug.Log($"🎮 Executing opponent move: cell={cellIndex}, dir={direction}");
+        
+        // Directly select cell and direction without turn validation
+        SoundManager.Instance?.PlaySFX(Config.SFX.CLICK);
+        
+        if (!_turnManager.IsValidState(States.SelectingCell))
+        {
+            Debug.LogWarning("⚠️ Not in SelectingCell state, forcing state change");
+            _turnManager.SetState(States.SelectingCell);
+        }
+        
+        _turnManager.SelectCell(cellIndex);
+        _highlightCellSelected?.ShowHighlightCells(_turnManager.SelectedIndex);
+        
+        // Set direction and execute
+        _turnManager.SetDirection(direction);
+        _highlightCellSelected?.HideHighlightCells();
+        
+        StartCoroutine(HandleTurn());
+    }
+    
+    /// <summary>
     /// Helper coroutine to track errors in ExecuteMove
     /// </summary>
     private IEnumerator ExecuteMoveWithErrorTracking(System.Action<bool, System.Exception> callback)

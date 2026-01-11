@@ -8,6 +8,8 @@ public class LoadingState : MonoBehaviour, GameStateMachine
     public GameObject UIObject;
     Main MainScript;
     public static LoadingState instance;
+    private string _pendingGameMode = "";
+    
     void Awake()
     {
         Main.LoadState(this, 0, true);
@@ -19,16 +21,14 @@ public class LoadingState : MonoBehaviour, GameStateMachine
         _gameUIObj = gameStateObj;
         _settingUI = GameObject.Find("All").transform.Find("SettingUI").GetComponent<SettingUI>();
         
-        // Check if loaded directly from button (not from splash screen)
-        string gameMode = PlayerPrefs.GetString("GameMode", "");
-        if (!string.IsNullOrEmpty(gameMode))
+        // Check if loaded directly from Bluetooth
+        _pendingGameMode = PlayerPrefs.GetString("GameMode", "");
+        if (!string.IsNullOrEmpty(_pendingGameMode))
         {
-            Debug.Log($"🎮 Direct load detected with mode: {gameMode}");
-            // Clear the flag
+            Debug.Log($"🎮 Direct load detected with mode: {_pendingGameMode}");
             PlayerPrefs.DeleteKey("GameMode");
             PlayerPrefs.Save();
             
-            // Skip loading state and go directly to game
             StartCoroutine(DirectStartGame());
         }
     }
@@ -230,8 +230,7 @@ public class LoadingState : MonoBehaviour, GameStateMachine
     /// </summary>
     private IEnumerator DirectStartGame()
     {
-        string gameMode = PlayerPrefs.GetString("GameMode", "");
-        Debug.Log($"🚀 DirectStartGame: mode={gameMode}");
+        Debug.Log($"🚀 DirectStartGame: mode={_pendingGameMode}");
         
         // Wait for Main to initialize
         yield return new WaitForSeconds(0.5f);
@@ -259,13 +258,13 @@ public class LoadingState : MonoBehaviour, GameStateMachine
         Debug.Log("✅ GameState initialized");
         
         // Set Bluetooth mode
-        if (gameMode == "Bluetooth" && GameManager.instance != null)
+        if (_pendingGameMode == "Bluetooth" && GameManager.instance != null)
         {
             GameManager.instance.currentMode = GameMode.Bluetooth;
             Debug.Log("✅ Bluetooth mode set!");
         }
         
-        // Enable GameState directly (don't use Finish() as MainScript may be null)
+        // Enable GameState directly
         gameState.Enable();
         Debug.Log("✅ GameState enabled directly");
     }

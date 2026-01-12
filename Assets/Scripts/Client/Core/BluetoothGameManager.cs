@@ -499,13 +499,11 @@ public class BluetoothGameManager : MonoBehaviour
         if (!IsValidOpponentMove(move))
         {
             Debug.LogError($"❌ Invalid opponent move received: Cell {move.cellIndex}, Direction {move.direction}");
-            // TODO: Report potential cheating to server
             return;
         }
         
-        // Execute validated move
-        GameManager.instance.OnSelectCell(move.cellIndex);
-        GameManager.instance.OnSelectDirection(move.direction);
+        // Use ExecuteOpponentMove to avoid sending move back
+        GameManager.instance.ExecuteOpponentMove(move.cellIndex, move.direction);
     }
     
     private bool IsValidOpponentMove(MoveData move)

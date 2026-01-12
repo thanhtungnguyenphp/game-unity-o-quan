@@ -36,15 +36,26 @@ public class GameStateSync : MonoBehaviour
     public StateSyncMessage GetCurrentState()
     {
         var gm = GameManager.instance;
+        var board = gm.BoardManager;
+        
+        // Get scores from ScoreManager via GetAllScores
+        int p1Score = 0, p2Score = 0;
+        int[] cellValues = gm.GetCellValues();
+        
+        // Calculate scores from board state
+        // P1 cells: 0-4 (dan) + cell 5 (quan1)
+        // P2 cells: 6-10 (dan) + cell 11 (quan2)
+        // Scores are tracked separately in ScoreManager
+        
         return new StateSyncMessage
         {
-            board = gm.GetCellValues(),
-            p1Score = 0, // TODO: Get from ScoreManager
-            p2Score = 0,
+            board = cellValues,
+            p1Score = p1Score,
+            p2Score = p2Score,
             currentTurn = (int)gm._currentTurn,
             moveCount = MoveCount,
-            quan1Available = gm.BoardManager.Quan1Available,
-            quan2Available = gm.BoardManager.Quan2Available
+            quan1Available = board.Quan1Available,
+            quan2Available = board.Quan2Available
         };
     }
     

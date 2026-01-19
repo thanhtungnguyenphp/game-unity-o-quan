@@ -268,20 +268,28 @@ public class GameManager : MonoBehaviour, IGameManager
                 _turnManager.SwitchTurn();
                 _turnManager.SetState(States.SelectingCell);
                 
-                // Update turn indicator
-                bool isAITurn = isAIEnabled && _turnManager.CurrentTurn == aiPlayer;
-                if (isAITurn)
+                // Update turn indicator based on mode
+                if (currentMode == GameMode.Bluetooth)
                 {
-                    StartCoroutine(HandleAITurn());
+                    MultiplayerUI.Instance?.UpdateTurnDisplay();
                 }
                 else if (isAIEnabled)
                 {
-                    TurnIndicatorUI.Instance?.ShowPlayerTurn();
+                    bool isAITurn = _turnManager.CurrentTurn == aiPlayer;
+                    if (isAITurn)
+                    {
+                        StartCoroutine(HandleAITurn());
+                    }
+                    else
+                    {
+                        TurnIndicatorUI.Instance?.ShowPlayerTurn();
+                    }
                 }
             }
             else
             {
                 TurnIndicatorUI.Instance?.Hide();
+                MultiplayerUI.Instance?.Hide();
             }
         }
     }
@@ -362,14 +370,30 @@ public class GameManager : MonoBehaviour, IGameManager
 
         _scoreManager.GetAllScores(out int p1Score, out int p2Score, out _, out _, out _, out _);
         
-        // Award XP and coins based on result
-        bool isPlayer1 = _turnManager.CurrentTurn == PlayerTurn.P1;
-        bool won = (isPlayer1 && p1Score > p2Score) || (!isPlayer1 && p1Score < p2Score);
+        // Determine winner based on mode
+        bool won;
+        if (currentMode == GameMode.Bluetooth && BluetoothGameManager.Instance != null)
+        {
+            // For Bluetooth: check if MY score is higher
+            bool isP1 = BluetoothGameManager.Instance.myTurn == PlayerTurn.P1;
+            int myScore = isP1 ? p1Score : p2Score;
+            int oppScore = isP1 ? p2Score : p1Score;
+            won = myScore > oppScore;
+            
+            // Show multiplayer game over UI
+            MultiplayerUI.Instance?.ShowGameOver(won);
+        }
+        else
+        {
+            // For local/AI: based on current turn
+            bool isPlayer1 = _turnManager.CurrentTurn == PlayerTurn.P1;
+            won = (isPlayer1 && p1Score > p2Score) || (!isPlayer1 && p1Score < p2Score);
+        }
         
         if (LevelSystem.Instance != null)
         {
             int xp = won ? 50 : 10;
-            if (p1Score > 40 || p2Score > 40) xp += 20; // Bonus for high score
+            if (p1Score > 40 || p2Score > 40) xp += 20;
             LevelSystem.Instance.AddXP(xp);
         }
         
@@ -385,7 +409,6 @@ public class GameManager : MonoBehaviour, IGameManager
             AchievementManager.Instance.UpdateProgress(AchievementType.FirstWin);
             AchievementManager.Instance.UpdateProgress(AchievementType.MasterPlayer);
             
-            // Perfect game (50+ points)
             if (p1Score >= 50 || p2Score >= 50)
             {
                 AchievementManager.Instance.UpdateProgress(AchievementType.PerfectGame);
@@ -419,6 +442,10 @@ public class GameManager : MonoBehaviour, IGameManager
     {
         _scoreManager.GetAllScores(out int p1Score, out int p2Score, out int p1Stones, out int p2Stones, out int p1Owe, out int p2Owe);
         _uiController.UpdatePlayer(p1Score, p2Score, p1Stones, p2Stones, p1Owe, p2Owe);
+        
+        // Update multiplayer score UI if in Bluetooth mode
+        if (currentMode == GameMode.Bluetooth)
+            MultiplayerUI.Instance?.UpdateScores(p1Score, p2Score);
     }
     #endregion
 
@@ -480,6 +507,32 @@ public class GameManager : MonoBehaviour, IGameManager
                 StartCoroutine(HandleAITurn());
             else
                 TurnIndicatorUI.Instance?.ShowPlayerTurn();
+        }
+        
+        // Initialize Multiplayer UI for Bluetooth mode
+        if (currentMode == GameMode.Bluetooth)
+        {
+            Debug.Log($"🎮 Bluetooth mode - isHost={BluetoothGameManager.Instance?.isHost}, myTurn={BluetoothGameManager.Instance?.myTurn}");
+            
+            if (MultiplayerUI.Instance == null)
+            {
+                var canvas = GetComponentInChildren<Canvas>();
+                if (canvas != null)
+                {
+                    var go = new GameObject("MultiplayerUI");
+                    go.transform.SetParent(canvas.transform, false);
+                    go.AddComponent<MultiplayerUI>();
+                    Debug.Log("✅ MultiplayerUI created");
+                }
+                else
+                {
+                    Debug.LogError("❌ Canvas not found for MultiplayerUI");
+                }
+            }
+            
+            MultiplayerUI.Instance?.Initialize();
+            MultiplayerUI.Instance?.UpdateTurnDisplay();
+            MultiplayerScoreUI.Instance?.Reset();
         }
     }
     #endregion

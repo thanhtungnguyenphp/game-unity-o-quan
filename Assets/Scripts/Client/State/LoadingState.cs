@@ -257,11 +257,21 @@ public class LoadingState : MonoBehaviour, GameStateMachine
         yield return StartCoroutine(gameState.Init());
         Debug.Log("✅ GameState initialized");
         
-        // Set Bluetooth mode
+        // Set Bluetooth mode BEFORE enabling GameState
         if (_pendingGameMode == "Bluetooth" && GameManager.instance != null)
         {
             GameManager.instance.currentMode = GameMode.Bluetooth;
-            Debug.Log("✅ Bluetooth mode set!");
+            Debug.Log($"✅ Bluetooth mode set! myTurn={BluetoothGameManager.Instance?.myTurn}");
+            
+            // Create MultiplayerScoreUI
+            var canvas = GameManager.instance.GetComponentInChildren<Canvas>();
+            if (canvas != null && MultiplayerScoreUI.Instance == null)
+            {
+                var scoreUI = new GameObject("MultiplayerScoreUI");
+                scoreUI.transform.SetParent(canvas.transform, false);
+                scoreUI.AddComponent<MultiplayerScoreUI>();
+                Debug.Log("✅ MultiplayerScoreUI created");
+            }
         }
         
         // Enable GameState directly

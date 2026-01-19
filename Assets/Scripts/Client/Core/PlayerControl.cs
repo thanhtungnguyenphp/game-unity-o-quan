@@ -43,6 +43,13 @@ public class PlayerControl : MonoBehaviour, IPlayerUI
 
         _p1ScoreText.text = "0";
         _p2ScoreText.text = "0";
+        
+        // Hide default score UI in Bluetooth mode (use MultiplayerScoreUI instead)
+        if (GameManager.instance?.currentMode == GameMode.Bluetooth)
+        {
+            p1.parent.gameObject.SetActive(false);
+            p2.parent.gameObject.SetActive(false);
+        }
     }
 
     public void UpdateOutline(PlayerTurn turn)

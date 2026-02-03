@@ -1,5 +1,11 @@
 # 📚 Documentation Index - Ô QUAN Game
 
+**Tác giả:** Jerry Nguyen  
+**Email:** jerry06082018@gmail.com  
+**Website:** https://lamgame.vn/source-game/game-o-quan
+
+---
+
 ## 🤖 Gemini AI Integration (NEW)
 
 Tài liệu tích hợp Google Gemini AI:
@@ -46,4 +52,5 @@ doc/
 
 ---
 
-**Last Updated:** 2025-12-29
+**Last Updated:** 2026-02-03  
+**Author:** Jerry Nguyen (jerry06082018@gmail.com)

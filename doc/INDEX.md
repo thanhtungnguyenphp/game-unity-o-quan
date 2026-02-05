@@ -6,7 +6,15 @@
 
 ---
 
-## 🤖 Gemini AI Integration (NEW)
+## 📖 Tài Liệu Game (NEW)
+
+Tài liệu tổng quan về game và task list:
+
+- **[README.md](information-game/README.md)** - Tổng quan game & kiến trúc
+- **[FEATURES.md](information-game/FEATURES.md)** - Chi tiết tính năng
+- **[TASKS.md](information-game/TASKS.md)** - 📋 Task list & Timeline upload Store
+
+## 🤖 Gemini AI Integration
 
 Tài liệu tích hợp Google Gemini AI:
 
@@ -33,7 +41,11 @@ Tài liệu kỹ thuật cho chức năng chơi 2 máy qua Bluetooth:
 ```
 doc/
 ├── INDEX.md                    ← File này
-├── play_ai/                    ← Gemini AI docs (NEW)
+├── information-game/           ← Tài liệu tổng quan (NEW)
+│   ├── README.md               ← Tổng quan game
+│   ├── FEATURES.md             ← Chi tiết tính năng
+│   └── TASKS.md                ← Task list & timeline
+├── play_ai/                    ← Gemini AI docs
 │   ├── README.md
 │   ├── ARCHITECTURE.md
 │   ├── IMPLEMENTATION.md
@@ -45,8 +57,8 @@ doc/
 │   ├── API_REFERENCE.md
 │   ├── PROTOCOL.md
 │   ├── TROUBLESHOOTING.md
-│   ├── CODE_ANALYSIS.md        ← NEW: Phân tích code
-│   └── DEVELOPMENT_SOLUTION.md ← NEW: Giải pháp phát triển
+│   ├── CODE_ANALYSIS.md
+│   └── DEVELOPMENT_SOLUTION.md
 └── error/                      ← Screenshots lỗi
 ```
 
